@@ -1,0 +1,1 @@
+bash script/clean.sh && bash script/build.sh 
