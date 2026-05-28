@@ -1,1 +1,1 @@
-void it_works();
+void ItWorks();

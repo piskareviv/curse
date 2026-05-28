@@ -6,7 +6,7 @@
 TEST(ItWorks, ItWorks) {
     testing::internal::CaptureStdout();
 
-    it_works();
+    ItWorks();
 
     std::string output = testing::internal::GetCapturedStdout();
 

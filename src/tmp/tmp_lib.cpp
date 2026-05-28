@@ -1,5 +1,5 @@
 #include <iostream>
 
-void it_works() {
+void ItWorks() {
     std::cout << "it works" << std::endl;
 }
