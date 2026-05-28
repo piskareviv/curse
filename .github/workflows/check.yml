@@ -1,0 +1,31 @@
+name: build and test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: fetch dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential
+               
+        wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+        chmod +x /tmp/llvm.sh
+        sudo /tmp/llvm.sh 20 all
+
+        clang-20 --version
+
+    - name: build and test
+      run: |
+        bash script/build.sh
+
