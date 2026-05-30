@@ -1,3 +1,8 @@
 hits.csv
 hits.csv.gz
-build*
+
+build/*
+build_asan/*
+build_tsan/*
+build_msan/*
+
