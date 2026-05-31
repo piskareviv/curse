@@ -20,3 +20,4 @@ build_msan/*
 compile_commands.json
 .vscode/*
 
+_tmp/*

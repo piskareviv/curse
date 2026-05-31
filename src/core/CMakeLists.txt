@@ -20,11 +20,10 @@ add_library(curse_core
   lz4.hpp
 )
   
-  target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})
-  target_link_libraries(curse_core PRIVATE lz4)
+target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})
+target_link_libraries(curse_core PRIVATE lz4)  
   
-  
-  add_executable(curse_core_test
+add_executable(curse_core_test
   test/test_types.cpp
   test/test_util.cpp
   test/test_file_io.cpp
