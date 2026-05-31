@@ -15,6 +15,7 @@ include(cmake/compile.cmake)
 
 
 add_subdirectory(dependencies/gtest)
+add_subdirectory(dependencies/lz4)
 add_subdirectory(src)
 
 

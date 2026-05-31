@@ -16,9 +16,15 @@ std::vector<T> Concat(std::vector<T> a, const Args... args) {
 }
 
 template <typename T>
+void ValueToBytes(const T& value, std::span<char> bytes) {
+    ENSURE(bytes.size() == sizeof(T));
+    memcpy(bytes.data(), reinterpret_cast<const char*>(&value), sizeof(T));
+}
+
+template <typename T>
 std::vector<char> ValueToBytes(const T& value) {
     std::vector<char> bytes(sizeof(T));
-    memcpy(bytes.data(), reinterpret_cast<const char*>(&value), sizeof(T));
+    ValueToBytes(value, bytes);
     return bytes;
 }
 
