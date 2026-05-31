@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -125,6 +126,11 @@ std::unique_ptr<Batch> CurseReader::Next() {
     return std::make_unique<Batch>(m_read_schema, std::move(columns));
 }
 
+std::vector<char> SizeToFourBytes(size_t sz) {
+    ENSURE_MSG(sz <= std::numeric_limits<int>::max(), "invalid conversion");
+    return ValueToBytes<int>(sz);
+}
+
 void WriteSchema(FileWriter &writer, const Schema &schema) {
     size_t n_cols = schema.Columns().size();
 
@@ -137,12 +143,14 @@ void WriteSchema(FileWriter &writer, const Schema &schema) {
     for (size_t i = 0; i < n_cols; i++) {
         names.values[i] = schema.Columns()[i].name;
         types[i] = static_cast<int>(schema.Columns()[i].type);
+        ENSURE_MSG(!names.values[i].starts_with(kAuxPrefix), "invalid column name");
     }
-    std::vector<char> bytes1 = ValueToBytes<int>(n_cols);
+
+    std::vector<char> bytes1 = SizeToFourBytes(n_cols);
     std::vector<char> bytes2 = VecToBytes<int>(types);
     std::vector<char> bytes4 = Convert<ColumnT<TypeId::String>>::ToBytes(names);
-    std::vector<char> bytes3 = ValueToBytes<int>(bytes4.size());
-    std::vector<char> bytes0 = ValueToBytes<int>(4 + bytes1.size() + bytes2.size() + bytes3.size() + bytes4.size());
+    std::vector<char> bytes3 = SizeToFourBytes(bytes4.size());
+    std::vector<char> bytes0 = SizeToFourBytes(4 + bytes1.size() + bytes2.size() + bytes3.size() + bytes4.size());
 
     writer.Write(Concat(bytes0, bytes1, bytes2, bytes3, bytes4));
 }
@@ -166,7 +174,7 @@ void WriteBatch(FileWriter &writer, const Batch &batch) {
         offsets[i] = dlt;
     }
 
-    writer.Write(Concat(ValueToBytes<int>(dlt), VecToBytes(offsets)));
+    writer.Write(Concat(SizeToFourBytes(dlt), VecToBytes(offsets)));
     for (const auto &bytes : vec) {
         writer.Write(bytes);
     }
