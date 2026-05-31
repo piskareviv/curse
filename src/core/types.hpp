@@ -6,6 +6,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -163,10 +164,8 @@ public:
     Schema(std::vector<ColumnInfo> columns);
 
     const std::vector<ColumnInfo>& Columns() const;
+    size_t IndexOf(std::string_view column_name) const;
 };
-
-// approximate target batch memory consumption in bytes
-constexpr size_t kBatchMemory = 128 * (1 << 20);
 
 class Batch {
 private:

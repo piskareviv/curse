@@ -5,6 +5,8 @@ hits.csv.gz
 *.zst_L20
 *.xz
 
+hits_1M.csv
+
 build/*
 build_asan/*
 build_tsan/*
@@ -13,3 +15,4 @@ build_msan/*
 
 compile_commands.json
 .vscode/*
+

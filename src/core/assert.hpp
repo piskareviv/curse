@@ -1,3 +1,5 @@
+#pragma once
+
 #include <format>
 #include <stdexcept>
 #include <string>

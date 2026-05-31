@@ -15,13 +15,10 @@ namespace fs = std::filesystem;
 
 class CSV_IO_Test : public testing::Test {  // NOLINT
 protected:
-    const std::string kTestFile = "test_csv_data.scv";
-    const std::string kTestFile2 = "test_csv_data_2.scv";
-
-    const std::vector<std::string> kTestFiles = {kTestFile, kTestFile2};
+    std::vector<std::string> test_files;
 
     void ClearFiles() {
-        for (auto file : kTestFiles) {
+        for (auto file : test_files) {
             if (fs::exists(file)) {
                 fs::remove(file);
             }
@@ -29,11 +26,7 @@ protected:
     }
 
     bool CheckFile(const std::string& file) {
-        return std::count(kTestFiles.begin(), kTestFiles.end(), file) > 0;
-    }
-
-    void SetUp() override {
-        ClearFiles();
+        return std::count(test_files.begin(), test_files.end(), file) > 0;
     }
 
     void Write(const std::string& file, const std::string& s) {
@@ -57,6 +50,18 @@ protected:
         return s;
     }
 
+    void SetUp() override {
+        auto info = testing::UnitTest::GetInstance()->current_test_info();
+        std::string prf = std::string(info->test_suite_name()) + "_" + info->name();
+
+        test_files = {
+            prf + "_1.csv",
+            prf + "_2.csv",
+        };
+
+        ClearFiles();
+    }
+
     void TearDown() override {
         ClearFiles();
     }
@@ -64,7 +69,7 @@ protected:
 
 TEST_F(CSV_IO_Test, InputWorks) {
     const std::string data = "meow,123,2020-12-20\nwoof,456,2025-01-25\nwoof,456,2025-01-25\n";
-    Write(kTestFile, data);
+    Write(test_files[0], data);
 
     const curse::Schema schema = curse::Schema({
         curse::Schema::ColumnInfo{.name = "1", .type = curse::TypeId::String},
@@ -72,7 +77,7 @@ TEST_F(CSV_IO_Test, InputWorks) {
         curse::Schema::ColumnInfo{.name = "3", .type = curse::TypeId::Date},
     });
 
-    curse::CsvReader reader(kTestFile, schema);
+    curse::CsvReader reader(test_files[0], schema);
 
     ASSERT_EQ(schema.Columns()[0].name, reader.GetSchema()->Columns()[0].name);
 
@@ -103,7 +108,7 @@ TEST_F(CSV_IO_Test, InputWorks) {
 
 TEST_F(CSV_IO_Test, OutputWorks) {
     const std::string data = "meow,123,2020-12-20\nwoof,456,2025-01-25\nwoof,456,2025-01-25\n";
-    Write(kTestFile, data);
+    Write(test_files[0], data);
 
     const curse::Schema schema = curse::Schema({
         curse::Schema::ColumnInfo{.name = "1", .type = curse::TypeId::String},
@@ -111,11 +116,9 @@ TEST_F(CSV_IO_Test, OutputWorks) {
         curse::Schema::ColumnInfo{.name = "3", .type = curse::TypeId::Date},
     });
 
-    curse::CsvReader reader(kTestFile, schema);
+    curse::WriteAsCsv(test_files[1], std::make_unique<CsvReader>(test_files[0], schema));
 
-    curse::WriteAsCsv(kTestFile2, std::make_unique<CsvReader>(kTestFile, schema));
-
-    ASSERT_EQ(Read(kTestFile2), data);
+    ASSERT_EQ(Read(test_files[1]), data);
 }
 
 TEST_F(CSV_IO_Test, CheckAllTypes) {
@@ -123,7 +126,7 @@ TEST_F(CSV_IO_Test, CheckAllTypes) {
         "1,200,30000,4000000000,5000000000000000000,3.14,A,hello,2023-10-05,2023-10-05 12:00:00\n"
         "-1,-200,-30000,-4000000000,-5000000000000000000,2.718,B,world,2024-01-01,2024-01-01 00:00:00.123456789\n";
 
-    Write(kTestFile, data);
+    Write(test_files[0], data);
 
     const curse::Schema schema = curse::Schema({
         curse::Schema::ColumnInfo{.name = "1", .type = curse::TypeId::Int8},
@@ -138,26 +141,26 @@ TEST_F(CSV_IO_Test, CheckAllTypes) {
         curse::Schema::ColumnInfo{.name = "10", .type = curse::TypeId::Timestamp},
     });
 
-    curse::WriteAsCsv(kTestFile2, std::make_unique<curse::CsvReader>(kTestFile, schema));
+    curse::WriteAsCsv(test_files[1], std::make_unique<curse::CsvReader>(test_files[0], schema));
 
-    ASSERT_EQ(Read(kTestFile2), data);
+    ASSERT_EQ(Read(test_files[0]), data);
 }
 
 TEST_F(CSV_IO_Test, EscapedNewline) {
     const std::string data = "123,\"must\nkys\"\n";
 
-    Write(kTestFile, data);
+    Write(test_files[0], data);
 
     const curse::Schema schema = curse::Schema({
         curse::Schema::ColumnInfo{.name = "1", .type = curse::TypeId::Int8},
         curse::Schema::ColumnInfo{.name = "2", .type = curse::TypeId::String},
     });
 
-    curse::WriteAsCsv(kTestFile2, std::make_unique<curse::CsvReader>(kTestFile, schema));
+    curse::WriteAsCsv(test_files[1], std::make_unique<curse::CsvReader>(test_files[0], schema));
 
-    ASSERT_EQ(Read(kTestFile2), data);
+    ASSERT_EQ(Read(test_files[1]), data);
 
-    curse::CsvReader reader(kTestFile, schema);
+    curse::CsvReader reader(test_files[1], schema);
     curse::Batch batch = *reader.Next();
 
     ASSERT_EQ(std::get<curse::ColumnT<curse::TypeId::String>>(batch.Columns()[1].Values())[0],
@@ -169,7 +172,7 @@ TEST_F(CSV_IO_Test, IntegerMinMaxValues) {
         "127,32767,2147483647,9223372036854775807,170141183460469231731687303715884105727\n"
         "-128,-32768,-2147483648,-9223372036854775808,-170141183460469231731687303715884105728\n";
 
-    Write(kTestFile, data);
+    Write(test_files[0], data);
 
     const curse::Schema schema = curse::Schema({
         curse::Schema::ColumnInfo{.name = "1", .type = curse::TypeId::Int8},
@@ -179,9 +182,9 @@ TEST_F(CSV_IO_Test, IntegerMinMaxValues) {
         curse::Schema::ColumnInfo{.name = "5", .type = curse::TypeId::Int128},
     });
 
-    curse::WriteAsCsv(kTestFile2, std::make_unique<curse::CsvReader>(kTestFile, schema));
+    curse::WriteAsCsv(test_files[1], std::make_unique<curse::CsvReader>(test_files[0], schema));
 
-    ASSERT_EQ(Read(kTestFile2), data);
+    ASSERT_EQ(Read(test_files[1]), data);
 }
 
 TEST_F(CSV_IO_Test, ZeroValueBytes) {
@@ -194,7 +197,7 @@ TEST_F(CSV_IO_Test, ZeroValueBytes) {
     data += "b";
     data += "\n";
 
-    Write(kTestFile, data);
+    Write(test_files[0], data);
 
     const curse::Schema schema = curse::Schema({
         curse::Schema::ColumnInfo{.name = "1", .type = curse::TypeId::Char},
@@ -202,8 +205,8 @@ TEST_F(CSV_IO_Test, ZeroValueBytes) {
         curse::Schema::ColumnInfo{.name = "3", .type = curse::TypeId::String},
     });
 
-    curse::WriteAsCsv(kTestFile2, std::make_unique<curse::CsvReader>(kTestFile, schema));
+    curse::WriteAsCsv(test_files[1], std::make_unique<curse::CsvReader>(test_files[0], schema));
 
-    std::string result = Read(kTestFile2);
+    std::string result = Read(test_files[1]);
     ASSERT_EQ(result, data);
 }

@@ -11,6 +11,7 @@
 #include <string_view>
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 #include "src/core/assert.hpp"
 #include "src/core/types.hpp"
@@ -190,8 +191,8 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Int8 || id == TypeId:
 
     using T = ReprType<id>::T;
 
-    static std::vector<char> ToBytes(const std::vector<T>& values) {
-        return VecToBytes<T>(values);
+    static std::vector<char> ToBytes(const ColumnT<id>& col) {
+        return VecToBytes<T>(col.values);
     }
     static ColumnT<id> FromBytes(std::span<const char> bytes) {
         return ColumnT<id>{.values = VecFromBytes<T>(bytes)};
@@ -204,7 +205,9 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Date || id == TypeId:
     using RawT = Helper<id>::RawT;
     static constexpr TypeId kId = id;
 
-    static std::vector<char> ToBytes(const std::vector<T>& values) {
+    static std::vector<char> ToBytes(const ColumnT<id>& col) {
+        const std::vector<T>& values = col.values;
+
         std::vector<RawT> vec(values.size());
         for (size_t i = 0; i < values.size(); i++) {
             vec[i] = Helper<id>::ToRaw(values[i]);
@@ -232,7 +235,8 @@ private:
     static constexpr char kEscape = 1;
 
 public:
-    static std::vector<char> ToBytes(const std::vector<std::string>& values) {
+    static std::vector<char> ToBytes(const ColumnT<id>& col) {
+        const std::vector<std::string>& values = col.values;
 
         std::vector<char> result;
 
@@ -285,7 +289,7 @@ public:
 template <>
 struct Convert<Column> {
     static std::vector<char> ToBytes(const Column& column) {
-        return std::visit([]<TypeId id>(const ColumnT<id>& col) { return Convert<ColumnT<id>>::ToBytes(col.values); },
+        return std::visit([]<TypeId id>(const ColumnT<id>& col) { return Convert<ColumnT<id>>::ToBytes(col); },
                           column.m_column);
     }
 

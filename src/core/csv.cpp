@@ -2,7 +2,9 @@
 
 #include <cstddef>
 #include <fstream>
+#include <istream>
 #include <memory>
+#include <ostream>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -10,19 +12,34 @@
 #include "dependencies/vince/csv.hpp"
 #include "src/core/convert.hpp"
 #include "src/core/types.hpp"
-#include "src/core/util.hpp"
 
 namespace curse {
 
 struct CsvReader::Impl {
     csv::CSVReader reader;
+
+    Impl(std::istream& input) : reader(input, csv::CSVFormat().no_header()) {}
+    Impl(std::unique_ptr<std::istream> input) : reader(std::move(input), csv::CSVFormat().no_header()) {}
     Impl(const std::string& file) : reader(file, csv::CSVFormat().no_header()) {}
 };
 
-CsvReader::CsvReader(const std::string& file, const Schema& schema)
+CsvReader::CsvReader(std::istream& input, const Schema& schema, size_t target_batch_bytes)
+    : m_impl(std::make_unique<CsvReader::Impl>(input)),
+      m_schema(std::make_shared<Schema>(schema)),
+      m_end_reached(false),
+      m_target_batch_size(target_batch_bytes) {}
+
+CsvReader::CsvReader(std::unique_ptr<std::istream> input, const Schema& schema, size_t target_batch_bytes)
+    : m_impl(std::make_unique<CsvReader::Impl>(std::move(input))),
+      m_schema(std::make_shared<Schema>(schema)),
+      m_end_reached(false),
+      m_target_batch_size(target_batch_bytes) {}
+
+CsvReader::CsvReader(const std::string& file, const Schema& schema, size_t target_batch_bytes)
     : m_impl(std::make_unique<CsvReader::Impl>(file)),
       m_schema(std::make_shared<Schema>(schema)),
-      m_end_reached(false) {}
+      m_end_reached(false),
+      m_target_batch_size(target_batch_bytes) {}
 
 std::shared_ptr<const Schema> CsvReader::GetSchema() {
     return m_schema;
@@ -32,7 +49,6 @@ std::unique_ptr<Batch> CsvReader::Next() {
     if (m_end_reached) {
         return nullptr;
     }
-
     const size_t n_cols = m_schema->Columns().size();
     std::vector<Column> columns;
 
@@ -44,7 +60,7 @@ std::unique_ptr<Batch> CsvReader::Next() {
     size_t total_bytes = 0;
 
     csv::CSVRow row;
-    while (rows_read == 0 || total_bytes < kBatchMemory) {
+    while (rows_read == 0 || total_bytes < m_target_batch_size) {
         if (!m_impl->reader.read_row(row)) {
             break;
         }
@@ -78,9 +94,8 @@ std::unique_ptr<Batch> CsvReader::Next() {
 
 CsvReader::~CsvReader() {}
 
-void WriteAsCsv(const std::string& file, std::unique_ptr<BatchStream> stream) {
-    std::ofstream fout(file);
-    auto writer = csv::make_csv_writer(fout).set_auto_flush(false);
+void WriteAsCsv(std::ostream& out, std::unique_ptr<BatchStream> stream) {
+    auto writer = csv::make_csv_writer(out).set_auto_flush(false);
 
     const size_t n_cols = stream->GetSchema()->Columns().size();
     std::vector<std::string> vec(n_cols);
@@ -99,5 +114,8 @@ void WriteAsCsv(const std::string& file, std::unique_ptr<BatchStream> stream) {
         }
     }
 }
-
+void WriteAsCsv(const std::string& file, std::unique_ptr<BatchStream> stream) {
+    std::ofstream fout(file);
+    WriteAsCsv(fout, std::move(stream));
+}
 }  // namespace curse

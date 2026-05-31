@@ -18,6 +18,15 @@ TEST(Concat, ItWorks) {
     ASSERT_EQ(a, b);
 }
 
+TEST(Concat, ManyArgs) {
+    std::vector<int> a1 = std::vector<int>{1, 2};
+    std::vector<int> a2 = std::vector<int>{3, 4};
+    std::vector<int> a3 = std::vector<int>{5, 6};
+    std::vector<int> a4 = std::vector<int>{7, 8};
+    std::vector<int> b = std::vector<int>{1, 2, 3, 4, 5, 6, 7, 8};
+    ASSERT_EQ(curse::Concat(a1, a2, a3, a4), b);
+}
+
 TEST(ToFromBytes, ItWorks) {
     ASSERT_EQ(1, curse::ValueFromBytes<int>(curse::ValueToBytes(1)));
     ASSERT_EQ(-1, curse::ValueFromBytes<int64_t>(curse::ValueToBytes<int64_t>(-1)));

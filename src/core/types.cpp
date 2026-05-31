@@ -36,6 +36,15 @@ const std::vector<Schema::ColumnInfo>& Schema::Columns() const {
     return m_columns;
 }
 
+size_t Schema::IndexOf(std::string_view column_name) const {
+    for (size_t i = 0; i < m_columns.size(); i++) {
+        if (m_columns[i].name == column_name) {
+            return i;
+        }
+    }
+    ENSURE_MSG(false, "unknown column name");
+}
+
 Batch::Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> columns)
     : m_schema(schema), m_columns(std::move(columns)) {
     ENSURE(schema->Columns().size() == m_columns.size());

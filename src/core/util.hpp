@@ -9,9 +9,9 @@
 
 namespace curse {
 
-template <typename T>
-std::vector<T> Concat(std::vector<T> a, const std::vector<T>& b) {
-    a.insert(a.end(), b.begin(), b.end());
+template <typename T, typename... Args>
+std::vector<T> Concat(std::vector<T> a, const Args... args) {
+    (a.insert(a.end(), args.begin(), args.end()), ...);
     return a;
 }
 

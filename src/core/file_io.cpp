@@ -1,13 +1,11 @@
 #include "src/core/file_io.hpp"
 
-#include <stdexcept>
-
 #include "src/core/assert.hpp"
 
 namespace curse {
 
 void IfstreamReader::Error() {
-    throw std::runtime_error("file read failed");
+    ENSURE_MSG(false, "IO Error: failed to read from file");
 }
 
 IfstreamReader::IfstreamReader(const std::string& file) : m_file(file, std::ios::binary) {}
@@ -34,7 +32,7 @@ size_t IfstreamReader::GetSize() {
 }
 
 void OfstreamWriter::Error() {
-    throw std::runtime_error("file write failed");
+    ENSURE_MSG(false, "IO Error: failed to write to file");
 }
 
 OfstreamWriter::OfstreamWriter(const std::string& file) : m_file(file, std::ios::binary) {}

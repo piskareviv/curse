@@ -3,7 +3,6 @@ add_library(curse_core
   types.cpp
   file_io.cpp
   csv.cpp
-  convert.cpp
   #
   assert.hpp
   csv.hpp
@@ -12,6 +11,8 @@ add_library(curse_core
   util.hpp
   csv.hpp
   convert.hpp
+  storage.hpp
+  storage.cpp
   constants.hpp
 )
 
@@ -24,6 +25,7 @@ add_executable(curse_core_test
   test/test_file_io.cpp
   test/test_csv.cpp
   test/test_convert.cpp
+  test/test_storage.cpp
 )
 
 target_link_libraries(curse_core_test PUBLIC curse_core gtest_main)
