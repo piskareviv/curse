@@ -142,7 +142,12 @@ template <typename T>
     requires(std::is_same_v<T, ReprType<TypeId::Timestamp>::T>)
 struct Convert<T> {
     static std::string ToString(const T& value) {
-        return std::format("{:%F %T}", value);
+        auto value_seconds = std::chrono::time_point_cast<std::chrono::seconds>(value);
+        if (value == value_seconds) {
+            return std::format("{:%F %T}", value_seconds);
+        } else {
+            return std::format("{:%F %T}", value);
+        }
     }
     static T FromString(std::string_view sv) {
         T value{};
