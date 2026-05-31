@@ -1,11 +1,11 @@
-#include <exception>
+#include <format>
 #include <stdexcept>
 #include <string>
 
-#define ENSURE_MSG(expr, msg)                                                                                        \
-    if (!(expr)) {                                                                                                   \
-        throw std::runtime_error(std::string(__FILE__) + ":" + std::to_string(__LINE__) + " critical assertion \"" + \
-                                 #expr + "\" failed, " + (msg));                                                     \
+#define ENSURE_MSG(expr, msg)                                                                              \
+    if (!(expr)) {                                                                                         \
+        throw std::runtime_error(                                                                          \
+            std::format("{}:{}: critical assertion \"{}\" failed, {}", __FILE__, __LINE__, #expr, (msg))); \
     }
 
 #define ENSURE(expr) ENSURE_MSG(expr, "")

@@ -39,7 +39,7 @@ using AllTypesIds = TypeIdHolder<TypeId::Int8, TypeId::Int16, TypeId::Int32, Typ
 void ExecFor(TypeId id, auto&& func) {
     [&]<TypeId... types>(TypeIdHolder<types...>) {
         size_t cnt = 0;
-        ((id == types ? (func.template operator()<types>(), 0) : 0), ...);
+        ((id == types ? (cnt += 1, func.template operator()<types>(), 0) : 0), ...);
         ENSURE(cnt == 1);
     }.template operator()<>(AllTypesIds());
 }

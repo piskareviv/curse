@@ -16,13 +16,17 @@ namespace curse {
 
 struct CsvReader::Impl {
     csv::CSVReader reader;
-    Impl(const std::string& file) : reader(file) {}
+    Impl(const std::string& file) : reader(file, csv::CSVFormat().no_header()) {}
 };
 
 CsvReader::CsvReader(const std::string& file, const Schema& schema)
     : m_impl(std::make_unique<CsvReader::Impl>(file)),
       m_schema(std::make_shared<Schema>(schema)),
       m_end_reached(false) {}
+
+std::shared_ptr<const Schema> CsvReader::GetSchema() {
+    return m_schema;
+}
 
 std::unique_ptr<Batch> CsvReader::Next() {
     if (m_end_reached) {

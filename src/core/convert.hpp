@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <variant>
 
+#include "src/core/assert.hpp"
 #include "src/core/types.hpp"
 #include "src/core/util.hpp"
 
@@ -57,13 +58,18 @@ template <typename T>
              std::is_same_v<T, ReprType<TypeId::Float64>::T>)
 struct Convert<T> {
     static std::string ToString(const T& value) {
-        return std::to_string(value);
+        char buf[128];
+        auto [ptr, err] = std::to_chars(buf, buf + sizeof(buf), value);
+        if (err != std::errc()) {
+            throw std::runtime_error("Convert::ToString failed");
+        }
+        return std::string(buf, ptr);
     }
     static T FromString(std::string_view sv) {
         T value = 0;
         auto [ptr, err] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
         if (err != std::errc() || ptr != sv.data() + sv.size()) {
-            throw std::runtime_error("parsing failed");
+            throw std::runtime_error("Convert::FromString failed");
         }
         return value;
     }
@@ -109,7 +115,7 @@ struct Convert<T> {
         T value = 0;
         for (char ch : sv) {
             ENSURE('0' <= ch && ch <= '9');
-            value = value * 10 + ch * (2 * !sign - 1);
+            value = value * 10 + (ch - '0') * (2 * !sign - 1);
         }
         return value;
     }
