@@ -11,6 +11,9 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    env:
+      GTEST_COLOR: yes
+
     steps:
     - uses: actions/checkout@v4
 
