@@ -1,5 +1,6 @@
 #include "src/core/types.hpp"
 
+#include <set>
 #include <variant>
 
 namespace curse {

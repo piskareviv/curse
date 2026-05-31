@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
-#include <set>
 #include <string>
 #include <variant>
 #include <vector>
@@ -111,6 +110,10 @@ struct ColumnT<id> {
     }
     const T& operator[](size_t ind) const {
         return values[ind];
+    }
+
+    friend bool operator==(const ColumnT& a, const ColumnT& b) {
+        return a.values == b.values;
     }
 };
 

@@ -23,6 +23,7 @@ add_executable(curse_core_test
   test/test_util.cpp
   test/test_file_io.cpp
   test/test_csv.cpp
+  test/test_convert.cpp
 )
 
 target_link_libraries(curse_core_test PUBLIC curse_core gtest_main)

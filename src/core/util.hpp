@@ -33,6 +33,9 @@ T ValueFromBytes(std::span<const char> bytes) {
 
 template <typename T>
 std::vector<char> VecToBytes(const std::vector<T>& vec) {
+    if (vec.empty()) {
+        return {};
+    }
     std::vector<char> bytes(sizeof(T) * vec.size());
     memcpy(bytes.data(), reinterpret_cast<const char*>(vec.data()), sizeof(T) * vec.size());
     return bytes;
@@ -40,6 +43,10 @@ std::vector<char> VecToBytes(const std::vector<T>& vec) {
 
 template <typename T>
 std::vector<T> VecFromBytes(std::span<const char> bytes) {
+    if (bytes.empty()) {
+        return {};
+    }
+
     ENSURE(bytes.size() % sizeof(T) == 0);  // NOLINT
 
     std::vector<T> data(bytes.size() / sizeof(T));

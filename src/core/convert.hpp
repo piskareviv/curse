@@ -222,27 +222,57 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::String>> {
     using T = ReprType<id>::T;
     static constexpr TypeId kId = id;
 
+private:
+    static constexpr char kDelim = 0;
+    static constexpr char kEscape = 1;
+
+public:
     static std::vector<char> ToBytes(const std::vector<std::string>& values) {
+
         std::vector<char> result;
+
         for (size_t i = 0; i < values.size(); i++) {
-            const std::string& s = values[i];
-            ENSURE_MSG(std::count(s.begin(), s.end(), static_cast<char>(0)) == 0,
-                       "strings containing null byte are not supported");
-            result.insert(result.end(), s.begin(), s.end());
-            result.push_back(0);
+            for (char ch : values[i]) {
+                if (ch == kDelim || ch == kEscape) {
+                    result.push_back(kEscape);
+                }
+                result.push_back(ch);
+            }
+            result.push_back(kDelim);
         }
+
         return result;
     }
 
     static ColumnT<id> FromBytes(std::span<const char> bytes) {
-        ENSURE_MSG(bytes.empty() || bytes.back() == 0, "invalid input");
+        if (bytes.empty()) {
+            return ColumnT<id>{.values = {}};
+        }
+
+        ENSURE_MSG(bytes.back() == 0, "invalid input");
 
         std::vector<std::string> values;
-        for (size_t i = 0; i < bytes.size();) {
-            size_t j = std::find(bytes.begin() + i, bytes.end(), static_cast<char>(0)) - bytes.begin();
-            values.emplace_back(bytes.begin() + i, bytes.begin() + j);
-            i = j + 1;
+        std::string token;
+
+        size_t i = 0;
+        for (; i + 1 < bytes.size(); i++) {
+            char ch = bytes[i];
+            if (ch == kDelim) {
+                values.emplace_back(std::move(token));
+                token.clear();
+            } else {
+                if (ch != kEscape) {
+                    token.push_back(ch);
+                } else {
+                    token.push_back(bytes[i + 1]);
+                    i += 1;
+                }
+            }
         }
+        ENSURE_MSG(i + 1 == bytes.size(), "invalid input");
+
+        values.emplace_back(std::move(token));
+
         return ColumnT<id>{.values = std::move(values)};
     }
 };
