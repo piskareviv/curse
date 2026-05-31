@@ -6,6 +6,10 @@ hits.csv.gz
 *.xz
 
 hits_1M.csv
+hits_10M.csv
+
+tmp.py
+
 
 build/*
 build_asan/*
