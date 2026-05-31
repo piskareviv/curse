@@ -9,6 +9,7 @@
 #include "src/core/constants.hpp"
 #include "src/core/convert.hpp"
 #include "src/core/file_io.hpp"
+#include "src/core/lz4.hpp"
 #include "src/core/types.hpp"
 #include "src/core/util.hpp"
 
@@ -105,6 +106,7 @@ std::unique_ptr<Batch> CurseReader::Next() {
     std::vector<Column> columns;
 
     std::vector<char> buf;
+    std::vector<char> buf2;
 
     for (size_t i = 0; i < m_inds.size(); i++) {
         size_t ind = m_inds[i];
@@ -114,7 +116,9 @@ std::unique_ptr<Batch> CurseReader::Next() {
         buf.resize(end - beg);
 
         m_reader->ReadBytes(m_ptr + beg, buf);
-        columns.emplace_back(Convert<Column>::FromBytes(m_read_schema->Columns()[i].type, buf));
+        DecompressLZ4(buf, buf2);
+
+        columns.emplace_back(Convert<Column>::FromBytes(m_read_schema->Columns()[i].type, buf2));
     }
 
     m_ptr += batch_size_bytes;
@@ -149,8 +153,10 @@ void WriteBatch(FileWriter &writer, const Batch &batch) {
     size_t n_cols = schema.Columns().size();
 
     std::vector<std::vector<char>> vec(n_cols);
+    std::vector<char> buf;
     for (size_t i = 0; i < n_cols; i++) {
-        vec[i] = Convert<Column>::ToBytes(batch.Columns()[i]);
+        CompressLZ4(Convert<Column>::ToBytes(batch.Columns()[i]), buf);
+        vec[i].assign(buf.begin(), buf.end());
     }
 
     std::vector<int> offsets(n_cols);

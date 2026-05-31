@@ -3,20 +3,22 @@ add_library(curse_core
   types.cpp
   file_io.cpp
   csv.cpp
-  #
+  storage.cpp
+  lz4.cpp
+
+  #############
+  
+  types.hpp
   assert.hpp
   csv.hpp
   file_io.hpp
-  types.hpp
   util.hpp
   csv.hpp
   convert.hpp
   storage.hpp
-  storage.cpp
   constants.hpp
   lz4.hpp
-  lz4.cpp
-  )
+)
   
   target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})
   target_link_libraries(curse_core PRIVATE lz4)
