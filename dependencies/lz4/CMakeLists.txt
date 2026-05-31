@@ -5,4 +5,4 @@ add_library(lz4
 )
 
 
-target_include_directories(lz4 SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+# target_include_directories(lz4 SYSTEM PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
