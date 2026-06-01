@@ -2,6 +2,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,17 @@ private:
 
 public:
     FilterOperator(std::string col);
+    virtual std::unique_ptr<BatchStream> Transform(std::unique_ptr<BatchStream>) const override;
+};
+
+class SkipOperator : public Operator {
+private:
+    size_t m_to_skip;
+
+    friend class SkipOperatorStream;
+
+public:
+    SkipOperator(size_t n_rows_to_skip);
     virtual std::unique_ptr<BatchStream> Transform(std::unique_ptr<BatchStream>) const override;
 };
 
@@ -117,5 +129,65 @@ FuncOperator MakeOperator(std::function<std::unique_ptr<Batch>(std::unique_ptr<B
 
 impl::FuncOperator MakeDropOperator(std::vector<std::string> col_to_drop);
 impl::FuncOperator MakeSelectOperator(std::vector<std::string> cols_to_select);
+
+// column transformer
+class Transform {
+private:
+    std::function<Column(const Column&)> m_transform;
+    std::function<TypeId(TypeId)> m_result_type;
+
+    Transform(std::function<Column(const Column&)> transform, std::function<TypeId(TypeId)> result_type);
+
+    friend class ColumnOperation;
+
+public:
+    static Transform Constant(Value value);
+    static Transform LogicalNot();
+
+    static Transform Strlen();
+
+    enum class ComparisonType {
+        Equal,
+        NotEqual,
+        GreaterThan,
+        GreaterThanOrEqual,
+        LessThan,
+        LessThanOrEqual,
+    };
+
+    static Transform Compare(ComparisonType how, Value value);
+
+    static Transform RegexpSearch(std::string pattern);
+
+    static Transform RegexpReplace(std::string pattern, std::string format);
+
+    static Transform ExtractMinute();
+
+    static Transform TruncateToMinutes();
+};
+
+class ColumnOperation {
+private:
+    std::function<Column(std::span<const Column*>)> m_transform;
+    std::function<TypeId(std::span<TypeId>)> m_result_type;
+    std::vector<std::string> m_input_cols;
+    std::string m_output_col;
+
+    ColumnOperation(std::function<Column(std::span<const Column*>)> transform,
+                    std::function<TypeId(std::span<TypeId>)> result_type, std::vector<std::string> input_cols,
+                    std::string output_col);
+
+    friend impl::FuncOperator MakeColumnTransformOperator(std::vector<ColumnOperation> ops);
+
+public:
+    ColumnOperation(Transform trs, std::string inp_col, std::string out_col);
+
+    static ColumnOperation LogicalAnd(std::string col1, std::string col2, std::string out_col);
+
+    // dst[i] = col[i] ? col1[i] : col2[i]
+    static ColumnOperation Select(std::string mask_col, std::string col1, std::string col2, std::string out_col);
+};
+
+impl::FuncOperator MakeColumnTransformOperator(std::vector<ColumnOperation> ops);
 
 }  // namespace curse

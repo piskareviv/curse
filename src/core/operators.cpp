@@ -1,11 +1,13 @@
 #include "src/core/operators.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <regex>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -180,6 +182,65 @@ public:
 
 std::unique_ptr<BatchStream> FilterOperator::Transform(std::unique_ptr<BatchStream> stream) const {
     return std::make_unique<FilterOperatorStream>(FilterOperatorStream::Secret(), m_col, std::move(stream));
+}
+
+// #########################################################################################
+
+SkipOperator::SkipOperator(size_t n_rows_to_skip) : m_to_skip(n_rows_to_skip) {}
+
+class SkipOperatorStream : public BatchStream {
+private:
+    std::unique_ptr<BatchStream> m_stream;
+    std::shared_ptr<const Schema> m_schema;
+
+    size_t m_rows_left;
+
+    struct Secret {};
+    friend class SkipOperator;
+
+public:
+    SkipOperatorStream(Secret, size_t n_rows, std::unique_ptr<BatchStream> stream)
+        : m_stream(std::move(stream)), m_rows_left(n_rows) {
+        ENSURE(m_stream != nullptr);
+        m_schema = m_stream->GetSchema();
+    }
+
+    std::unique_ptr<Batch> Next() override {
+        if (!m_stream) {
+            return nullptr;
+        }
+
+        std::unique_ptr<Batch> batch = m_stream->Next();
+        if (!batch) {
+            m_stream = nullptr;
+            return nullptr;
+        }
+
+        size_t n_cols = m_schema->Columns().size();
+        size_t n_rows = batch->NRows();
+
+        size_t to_skip = std::min(n_rows, m_rows_left);
+        m_rows_left -= to_skip;
+
+        std::vector<char> filt(n_rows, 1);
+        std::fill(filt.begin(), filt.begin() + to_skip, 0);
+
+        std::vector<Column> result;
+        for (size_t i = 0; i < n_cols; i++) {
+            std::visit([&]<TypeId id>(const ColumnT<id>& col) { result.emplace_back(col.Filter(filt)); },
+                       batch->Columns()[i].Values());
+        }
+
+        return std::make_unique<Batch>(m_schema, std::move(result));
+    }
+
+    std::shared_ptr<const Schema> GetSchema() override {
+        return m_schema;
+    }
+};
+
+std::unique_ptr<BatchStream> SkipOperator::Transform(std::unique_ptr<BatchStream> stream) const {
+    return std::make_unique<SkipOperatorStream>(SkipOperatorStream::Secret(), m_to_skip, std::move(stream));
 }
 
 // #########################################################################################
@@ -550,6 +611,281 @@ impl::FuncOperator MakeSelectOperator(std::vector<std::string> cols_to_select) {
         std::vector<Schema::ColumnInfo> cols;
         for (const std::string& name : cols_to_select) {
             cols.push_back(schema.Columns()[schema.IndexOf(name)]);
+        }
+        return cols;
+    };
+
+    return impl::MakeOperator(transform_batch, transform_schema);
+}
+
+Transform::Transform(std::function<Column(const Column&)> transform, std::function<TypeId(TypeId)> result_type)
+    : m_transform(std::move(transform)), m_result_type(std::move(result_type)) {}
+
+Transform Transform::Constant(Value value) {
+    return Transform(
+        [=](const Column& col) {
+            return std::visit(
+                [&]<TypeId id>(const ValueT<id>& val) {
+                    size_t sz = col.Size();
+                    const auto& vl = val.value;
+
+                    ColumnT<id> res;
+                    res.values.assign(sz, vl);
+                    return Column(std::move(res));
+                },
+                value.value);
+        },
+        [=](TypeId) { return value.Type(); });
+}
+
+Transform Transform::LogicalNot() {
+    return Transform(
+        [=](const Column& col) {
+            const ColumnT<TypeId::Int8>& cl = std::get<ColumnT<TypeId::Int8>>(col.Values());
+            ColumnT<TypeId::Int8> res;
+            res.values.reserve(cl.Size());
+            for (size_t i = 0; i < cl.Size(); i++) {
+                res.Append(!cl[i]);
+            }
+            return Column(std::move(res));
+        },
+        [=](TypeId) { return TypeId::Int8; });
+}
+
+Transform Transform::Strlen() {
+    return Transform(
+        [=](const Column& col) {
+            const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
+            ColumnT<TypeId::Int64> res;
+            res.values.reserve(cl.Size());
+            for (size_t i = 0; i < cl.Size(); i++) {
+                res.Append(cl[i].size());
+            }
+            return Column(std::move(res));
+        },
+        [=](TypeId) { return TypeId::Int64; });
+}
+
+Transform Transform::Compare(ComparisonType how, Value value) {
+    return Transform(
+        [=](const Column& col) {
+            ColumnT<TypeId::Int8> res;
+            std::visit(
+                [&]<TypeId id>(const ValueT<id>& val) -> void {
+                    const auto& vl = val.value;
+
+                    const ColumnT<id>& cl = std::get<ColumnT<id>>(col.Values());
+                    size_t sz = cl.Size();
+
+                    res.values.resize(sz);
+                    switch (how) {
+                        case ComparisonType::Equal:
+                            for (size_t i = 0; i < sz; i++) {
+                                res[i] = cl[i] == vl;
+                            }
+                            break;
+                        case ComparisonType::NotEqual:
+                            for (size_t i = 0; i < sz; i++) {
+                                res[i] = cl[i] != vl;
+                            }
+                            break;
+                        case ComparisonType::GreaterThan:
+                            for (size_t i = 0; i < sz; i++) {
+                                res[i] = cl[i] > vl;
+                            }
+                            break;
+                        case ComparisonType::GreaterThanOrEqual:
+                            for (size_t i = 0; i < sz; i++) {
+                                res[i] = cl[i] >= vl;
+                            }
+                            break;
+                        case ComparisonType::LessThan:
+                            for (size_t i = 0; i < sz; i++) {
+                                res[i] = cl[i] < vl;
+                            }
+                            break;
+                        case ComparisonType::LessThanOrEqual:
+                            for (size_t i = 0; i < sz; i++) {
+                                res[i] = cl[i] <= vl;
+                            }
+                            break;
+                    }
+                },
+                value.value);
+            return res;
+        },
+        [=](TypeId) { return TypeId::Int8; });
+}
+
+Transform Transform::RegexpSearch(std::string pattern) {
+    const std::regex re(pattern, std::regex::optimize);
+
+    return Transform(
+        [=](const Column& col) {
+            const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
+            ColumnT<TypeId::Int8> res;
+            res.values.reserve(cl.Size());
+            for (size_t i = 0; i < cl.Size(); i++) {
+                bool found = std::regex_search(cl[i], re);
+                res.Append(found);
+            }
+            return Column(std::move(res));
+        },
+        [=](TypeId) { return TypeId::Int8; });
+}
+
+Transform Transform::RegexpReplace(std::string pattern, std::string format) {
+    const std::regex re(pattern, std::regex::optimize);
+
+    return Transform(
+        [=](const Column& col) {
+            const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
+            ColumnT<TypeId::String> res;
+            res.values.reserve(cl.Size());
+            for (size_t i = 0; i < cl.Size(); i++) {
+                std::string s = std::regex_replace(cl[i], re, format);
+                res.Append(s);
+            }
+            return Column(std::move(res));
+        },
+        [=](TypeId) { return TypeId::String; });
+}
+
+Transform Transform::ExtractMinute() {
+    return Transform(
+        [=](const Column& col) {
+            const ColumnT<TypeId::Timestamp>& cl = std::get<ColumnT<TypeId::Timestamp>>(col.Values());
+            ColumnT<TypeId::Int64> res;
+            res.values.reserve(cl.Size());
+            for (size_t i = 0; i < cl.Size(); i++) {
+                std::chrono::system_clock::time_point ts = cl.values[i];
+                auto minutes = std::chrono::duration_cast<std::chrono::minutes>(ts.time_since_epoch()).count();
+                res.Append(minutes % 60);
+            }
+            return Column(std::move(res));
+        },
+        [=](TypeId) { return TypeId::Int64; });
+}
+
+Transform Transform::TruncateToMinutes() {
+    return Transform(
+        [=](const Column& col) {
+            const ColumnT<TypeId::Timestamp>& cl = std::get<ColumnT<TypeId::Timestamp>>(col.Values());
+            ColumnT<TypeId::Timestamp> res;
+            res.values.reserve(cl.Size());
+            for (size_t i = 0; i < cl.Size(); i++) {
+                std::chrono::system_clock::time_point ts = cl.values[i];
+                std::chrono::system_clock::time_point tr = std::chrono::floor<std::chrono::minutes>(ts);
+                res.Append(tr);
+            }
+            return Column(std::move(res));
+        },
+        [=](TypeId) { return TypeId::Timestamp; });
+}
+
+ColumnOperation::ColumnOperation(std::function<Column(std::span<const Column*>)> transform,
+                                 std::function<TypeId(std::span<TypeId>)> result_type,
+                                 std::vector<std::string> input_cols, std::string output_col)
+    : m_transform(std::move(transform)),
+      m_result_type(std::move(result_type)),
+      m_input_cols{std::move(input_cols)},
+      m_output_col(std::move(output_col)) {}
+
+ColumnOperation::ColumnOperation(Transform trs, std::string inp_col, std::string out_col)
+    : m_transform([t = std::move(trs.m_transform)](std::span<const Column*> vec) {
+          ENSURE(vec.size() == 1);
+          return t(*vec[0]);
+      }),
+      m_result_type([rt = std::move(trs.m_result_type)](std::span<TypeId> sp) {
+          ENSURE(sp.size() == 1);
+          return rt(sp[0]);
+      }),
+      m_input_cols{std::move(inp_col)},
+      m_output_col(std::move(out_col)) {}
+
+ColumnOperation ColumnOperation::LogicalAnd(std::string col1, std::string col2, std::string out_col) {
+    std::function<Column(std::span<const Column*>)> trs = [](std::span<const Column*> sp) -> Column {
+        ENSURE(sp.size() == 2);
+        const Column& col1 = *sp[0];
+        const Column& col2 = *sp[1];
+        const ColumnT<TypeId::Int8>& cl1 = std::get<ColumnT<TypeId::Int8>>(col1.Values());
+        const ColumnT<TypeId::Int8>& cl2 = std::get<ColumnT<TypeId::Int8>>(col2.Values());
+
+        size_t sz = col1.Size();
+        ENSURE(col2.Size() == sz);
+
+        ColumnT<TypeId::Int8> col;
+        col.values.reserve(sz);
+        for (size_t i = 0; i < sz; i++) {
+            col.Append(cl1[i] && cl2[i]);
+        }
+        return Column(std::move(col));
+    };
+    auto result_type = [](std::span<TypeId>) { return TypeId::Int8; };
+    return ColumnOperation(std::move(trs), result_type, {col1, col2}, out_col);
+}
+
+ColumnOperation ColumnOperation::Select(std::string mask_col, std::string col1, std::string col2, std::string out_col) {
+    std::function<Column(std::span<const Column*>)> trs = [](std::span<const Column*> sp) -> Column {
+        ENSURE(sp.size() == 3);
+        const Column& col1 = *sp[0];
+        const Column& col2 = *sp[1];
+        const Column& col3 = *sp[2];
+
+        size_t sz = col1.Size();
+        const ColumnT<TypeId::Int8>& mask = std::get<ColumnT<TypeId::Int8>>(col1.Values());
+
+        return std::visit(
+            [&]<TypeId id>(const ColumnT<id>& cl2) -> Column {
+                ColumnT<id> cl3 = std::get<ColumnT<id>>(col3.Values());
+                ENSURE(cl2.Size() == sz && cl3.Size() == sz);
+
+                ColumnT<id> result;
+                result.values.reserve(sz);
+                for (size_t i = 0; i < sz; i++) {
+                    result.Append(mask[i] ? cl2[i] : cl3[i]);
+                }
+                return Column(std::move(result));
+            },
+            col2.Values());
+    };
+    auto result_type = [](std::span<TypeId> sp) {
+        ENSURE(sp.size() == 3);
+        return sp[1];
+    };
+    return ColumnOperation(std::move(trs), result_type, {mask_col, col1, col2}, out_col);
+}
+
+impl::FuncOperator MakeColumnTransformOperator(std::vector<ColumnOperation> ops) {
+
+    auto transform_batch = [=](std::unique_ptr<Batch> batch, const Schema&) -> std::unique_ptr<Batch> {
+        std::shared_ptr<const Schema> schema = batch->GetSchema();
+
+        std::vector<Column> columns = batch->ExtractColumns();
+        std::vector<Column> result;
+
+        for (size_t i = 0; i < columns.size(); i++) {
+            for (const ColumnOperation& op : ops) {
+                std::vector<const Column*> ptrs;
+                for (auto& name : op.m_input_cols) {
+                    ptrs.push_back(&columns[schema->IndexOf(name)]);
+                }
+                result.emplace_back(op.m_transform(ptrs));
+            }
+        }
+
+        columns.insert(columns.end(), result.begin(), result.end());
+
+        return std::make_unique<Batch>(schema, std::move(columns));
+    };
+    auto transform_schema = [=](const Schema& schema) -> Schema {
+        std::vector<Schema::ColumnInfo> cols = schema.Columns();
+        for (const ColumnOperation& op : ops) {
+            std::vector<TypeId> ids;
+            for (auto& name : op.m_input_cols) {
+                ids.push_back(schema.Columns()[schema.IndexOf(name)].type);
+            }
+            cols.push_back({.name = op.m_output_col, .type = op.m_result_type(ids)});
         }
         return cols;
     };
