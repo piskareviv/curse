@@ -1,8 +1,8 @@
-
 #include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "src/core/aggregators.hpp"
@@ -90,5 +90,32 @@ public:
                     std::optional<size_t> limit = std::nullopt);
     virtual std::unique_ptr<BatchStream> Transform(std::unique_ptr<BatchStream>) const override;
 };
+
+namespace impl {
+
+class FuncOperator : public Operator {
+private:
+    std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> m_transform_batch;
+    std::function<Schema(const Schema&)> m_transform_schema;
+
+    FuncOperator(std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
+                 std::function<Schema(const Schema&)> transform_schema);
+
+    friend FuncOperator MakeOperator(
+        std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
+        std::function<Schema(const Schema&)> transform_schema);
+
+public:
+    std::unique_ptr<BatchStream> Transform(std::unique_ptr<BatchStream>) const override;
+};
+
+// to make the constructor private
+FuncOperator MakeOperator(std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
+                          std::function<Schema(const Schema&)> transform_schema);
+
+}  // namespace impl
+
+impl::FuncOperator MakeDropOperator(std::vector<std::string> col_to_drop);
+impl::FuncOperator MakeSelectOperator(std::vector<std::string> cols_to_select);
 
 }  // namespace curse
