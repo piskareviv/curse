@@ -28,8 +28,16 @@ std::unique_ptr<curse::BatchStream> Q0(const std::string& file) {
     return std::move(reader) >= count;
 }
 
-std::unique_ptr<curse::BatchStream> Q1(const std::string&) {
-    return nullptr;
+std::unique_ptr<curse::BatchStream> Q1(const std::string& file) {
+    std::unique_ptr<curse::BatchStream> reader =
+        std::make_unique<curse::CurseReader>(file, SubSchema(kHitsSchema, {"AdvEngineID"}));
+
+    curse::FilterOperator filt("AdvEngineID");
+
+    curse::AggregationOperator count(
+        {curse::AggregationOperator::Params{.tp = curse::AggType::Count, .inp_col = "AdvEngineID", .out_col = "1"}});
+
+    return std::move(reader) >= filt >= count;
 }
 
 std::unique_ptr<curse::BatchStream> Q2(const std::string& file) {

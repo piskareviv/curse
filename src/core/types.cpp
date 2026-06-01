@@ -51,9 +51,9 @@ size_t Schema::IndexOf(std::string_view column_name) const {
     }
     ENSURE_MSG(false, "unknown column name");
 }
-TypeId Schema::TypeOf(size_t ind) const {
-    return m_columns[ind].type;
-}
+// TypeId Schema::TypeOf(size_t ind) const {
+//     return m_columns[ind].type;
+// }
 // TypeId Schema::TypeOf(std::string_view column_name) const {
 //     return m_columns[IndexOf(column_name)].type;
 // }
@@ -78,6 +78,7 @@ Batch::Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> co
 }
 
 std::vector<Column> Batch::ExtractColumns() {
+    m_schema = nullptr;
     return std::exchange(m_columns, std::vector<Column>());
 }
 

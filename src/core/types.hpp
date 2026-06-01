@@ -37,6 +37,11 @@ struct TypeIdHolder {};
 using AllTypesIds = TypeIdHolder<TypeId::Int8, TypeId::Int16, TypeId::Int32, TypeId::Int64, TypeId::Int128,
                                  TypeId::Float64, TypeId::Char, TypeId::String, TypeId::Date, TypeId::Timestamp>;
 
+constexpr bool IsIntegral(TypeId id) {
+    return id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||
+           id == TypeId::Int128;
+}
+
 void ExecFor(TypeId id, auto&& func) {
     [&]<TypeId... types>(TypeIdHolder<types...>) {
         size_t cnt = 0;
@@ -169,6 +174,17 @@ struct ColumnT<id> {
     friend bool operator==(const ColumnT& a, const ColumnT& b) {
         return a.values == b.values;
     }
+
+    ColumnT<id> Filter(std::span<const char> filt) const {
+        ENSURE(filt.size() == Size());
+        std::vector<T> vec;
+        for (size_t i = 0; i < values.size(); i++) {
+            if (filt[i]) {
+                vec.push_back(values[i]);
+            }
+        }
+        return ColumnT<id>{.values = std::move(vec)};
+    }
 };
 
 class Column {
@@ -221,7 +237,7 @@ public:
     const std::vector<ColumnInfo>& Columns() const;
     size_t IndexOf(std::string_view column_name) const;
 
-    TypeId TypeOf(size_t) const;
+    // TypeId TypeOf(size_t) const;
     // TypeId TypeOf(std::string_view column_name) const;
 };
 
