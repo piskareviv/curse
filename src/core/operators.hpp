@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "src/core/aggregators.hpp"
@@ -48,6 +49,45 @@ private:
 
 public:
     FilterOperator(std::string col);
+    virtual std::unique_ptr<BatchStream> Transform(std::unique_ptr<BatchStream>) const override;
+};
+
+class SortOperator : public Operator {
+public:
+    struct Params {
+        std::string inp_col;
+        bool reversed = false;
+    };
+
+private:
+    std::vector<Params> m_params;
+    std::optional<size_t> m_limit;
+
+    friend class SortOperatorStream;
+
+public:
+    SortOperator(std::vector<Params> params, std::optional<size_t> limit = std::nullopt);
+    virtual std::unique_ptr<BatchStream> Transform(std::unique_ptr<BatchStream>) const override;
+};
+
+class GroupByOperator : public Operator {
+public:
+    struct Params {
+        AggType tp;
+        std::string inp_col;
+        std::string out_col;
+    };
+
+private:
+    std::vector<std::string> m_cols;
+    std::vector<Params> m_params;
+    std::optional<size_t> m_limit;
+
+    friend class SortOperatorStream;
+
+public:
+    GroupByOperator(std::vector<std::string> cls, std::vector<Params> params,
+                    std::optional<size_t> limit = std::nullopt);
     virtual std::unique_ptr<BatchStream> Transform(std::unique_ptr<BatchStream>) const override;
 };
 

@@ -9,6 +9,8 @@ hits_1M.csv
 hits_10M.csv
 
 hits.cursed
+hits_1M.cursed
+hits_10M.cursed
 
 tmp.py
 

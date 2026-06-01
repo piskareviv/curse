@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -145,8 +147,18 @@ private:
 public:
     ValueEnum value;
 
+    friend bool operator==(const Value& a, const Value& b) {
+        return a.value == b.value;
+    }
+
     TypeId Type() const {
         return std::visit([&]<TypeId id>(const ValueT<id>&) { return id; }, value);
+    }
+};
+
+struct ValueHasher {  // NOLINT
+    size_t operator()(const Value& value) const {
+        return std::visit([&]<TypeId id>(const ValueT<id>& vl) { return ValueT_Hasher<id>()(vl); }, value.value);
     }
 };
 
@@ -159,6 +171,16 @@ struct ColumnT<id> {
     static constexpr TypeId kId = id;
 
     std::vector<T> values;
+
+    void Append(T value) {
+        values.push_back(std::move(value));
+    }
+
+    void Append(const ColumnT<id>& col) {
+        for (const auto& value : col.values) {
+            Append(value);
+        }
+    }
 
     T& operator[](size_t ind) {
         return values[ind];
@@ -184,6 +206,22 @@ struct ColumnT<id> {
             }
         }
         return ColumnT<id>{.values = std::move(vec)};
+    }
+
+    ColumnT<id> Select(std::span<const size_t> inds) const {
+        std::vector<T> vec;
+        for (size_t i = 0; i < inds.size(); i++) {
+            vec.push_back(values[inds[i]]);
+        }
+        return ColumnT<id>{.values = std::move(vec)};
+    }
+
+    void StableArgsort(std::span<size_t> sp, bool reversed = false) const {
+        if (!reversed) {
+            std::stable_sort(sp.begin(), sp.end(), [&](size_t a, size_t b) { return values[a] < values[b]; });
+        } else {
+            std::stable_sort(sp.begin(), sp.end(), [&](size_t a, size_t b) { return values[a] > values[b]; });
+        }
     }
 };
 
@@ -216,6 +254,8 @@ public:
 
     TypeId Type() const;
     size_t Size() const;
+
+    void Append(Value value);
 
     ColumnEnum& Values();
     const ColumnEnum& Values() const;

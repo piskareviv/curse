@@ -24,6 +24,11 @@ TypeId Column::Type() const {
 size_t Column::Size() const {
     return std::visit([&](const auto& col) { return col.values.size(); }, m_column);
 }
+
+void Column::Append(Value value) {
+    std::visit([&]<TypeId id>(ColumnT<id>& col) { col.Append(std::get<ValueT<id>>(value.value).value); }, m_column);
+}
+
 Column::ColumnEnum& Column::Values() {
     return m_column;
 }

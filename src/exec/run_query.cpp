@@ -99,9 +99,22 @@ std::unique_ptr<curse::BatchStream> Q6(const std::string& file) {
     return std::move(reader) >= min_max;
 }
 
-std::unique_ptr<curse::BatchStream> Q7(const std::string&) {
-    return nullptr;
+// SELECT AdvEngineID, COUNT(*) FROM hits WHERE AdvEngineID <> 0 GROUP BY AdvEngineID ORDER BY COUNT(*) DESC;
+std::unique_ptr<curse::BatchStream> Q7(const std::string& file) {
+    std::unique_ptr<curse::BatchStream> reader =
+        std::make_unique<curse::CurseReader>(file, SubSchema(kHitsSchema, {"AdvEngineID"}));
+
+    curse::FilterOperator filt("AdvEngineID");
+
+    curse::GroupByOperator group_by(
+        {"AdvEngineID"},
+        {curse::GroupByOperator::Params{.tp = curse::AggType::Count, .inp_col = "AdvEngineID", .out_col = "cnt"}});
+
+    curse::SortOperator sort({curse::SortOperator::Params{.inp_col = "cnt", .reversed = true}});
+
+    return std::move(reader) >= filt >= group_by >= sort;
 }
+
 std::unique_ptr<curse::BatchStream> Q8(const std::string&) {
     return nullptr;
 }
