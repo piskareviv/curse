@@ -1,7 +1,10 @@
 #include "src/core/types.hpp"
 
+#include <memory>
 #include <set>
+#include <utility>
 #include <variant>
+#include <vector>
 
 namespace curse {
 
@@ -9,6 +12,10 @@ Column::Column() {}
 
 Column::Column(TypeId id) {
     ExecFor(id, [&]<TypeId id> { m_column = ColumnT<id>(); });
+}
+Column::Column(Value val) {
+    std::visit([&]<TypeId id>(ValueT<id> vl) { m_column = ColumnT<id>{.values = {std::move(vl.value)}}; },
+               std::move(val.value));
 }
 
 TypeId Column::Type() const {
@@ -44,6 +51,23 @@ size_t Schema::IndexOf(std::string_view column_name) const {
     }
     ENSURE_MSG(false, "unknown column name");
 }
+TypeId Schema::TypeOf(size_t ind) const {
+    return m_columns[ind].type;
+}
+// TypeId Schema::TypeOf(std::string_view column_name) const {
+//     return m_columns[IndexOf(column_name)].type;
+// }
+
+std::shared_ptr<const Schema> AddColumn(const Schema& schema, const Schema::ColumnInfo& info) {
+    std::vector<Schema::ColumnInfo> columns = schema.Columns();
+    columns.push_back(info);
+    return std::make_shared<const Schema>(std::move(columns));
+}
+std::shared_ptr<const Schema> AddColumns(const Schema& schema, const std::vector<Schema::ColumnInfo>& cols) {
+    std::vector<Schema::ColumnInfo> columns = schema.Columns();
+    columns.insert(columns.end(), cols.begin(), cols.end());
+    return std::make_shared<const Schema>(std::move(columns));
+}
 
 Batch::Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> columns)
     : m_schema(schema), m_columns(std::move(columns)) {
@@ -51,6 +75,10 @@ Batch::Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> co
     for (size_t i = 0; i < m_columns.size(); i++) {
         ENSURE(m_columns[i].Size() == m_columns[0].Size());
     }
+}
+
+std::vector<Column> Batch::ExtractColumns() {
+    return std::exchange(m_columns, std::vector<Column>());
 }
 
 size_t Batch::NRows() const {

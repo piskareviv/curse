@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "src/core/assert.hpp"
+#include "src/core/util.hpp"
 
 namespace curse {
 
@@ -96,6 +97,54 @@ template <>
 struct ReprType<TypeId::String> {
     using T = std::string;
 };
+
+template <TypeId id>
+struct ValueT {
+    ReprType<id>::T value;
+
+    friend bool operator==(const ValueT& a, const ValueT& b) {
+        return a.value == b.value;
+    }
+};
+
+template <TypeId id>
+struct ValueT_Hasher {  // NOLINT
+    std::size_t operator()(const ValueT<id>& value) const {
+        using T = typename ReprType<id>::T;
+        if constexpr (id == TypeId::Date || id == TypeId::Timestamp) {
+            if constexpr (id == TypeId::Date) {
+                auto x = std::chrono::sys_days{value.value}.time_since_epoch().count();
+                return std::hash<decltype(x)>()(x);
+            } else {
+                auto x = value.value.time_since_epoch().count();
+                return std::hash<decltype(x)>()(x);
+            }
+        } else {
+            return std::hash<T>()(value.value);
+        }
+    }
+};
+
+class Value {
+private:
+    template <typename>
+    struct Aux;
+
+    template <TypeId... types>
+    struct Aux<TypeIdHolder<types...>> {
+        using T = std::variant<ValueT<types>...>;
+    };
+
+    using ValueEnum = Aux<AllTypesIds>::T;
+
+public:
+    ValueEnum value;
+
+    TypeId Type() const {
+        return std::visit([&]<TypeId id>(const ValueT<id>&) { return id; }, value);
+    }
+};
+
 template <TypeId, typename = void>
 struct ColumnT;
 
@@ -111,6 +160,10 @@ struct ColumnT<id> {
     }
     const T& operator[](size_t ind) const {
         return values[ind];
+    }
+
+    size_t Size() const {
+        return values.size();
     }
 
     friend bool operator==(const ColumnT& a, const ColumnT& b) {
@@ -129,6 +182,7 @@ private:
     };
 
     using ColumnEnum = Aux<AllTypesIds>::T;
+    // using ColumnEnum = typename Mystery<TypeId, TypeIdHolder, AllTypesIds, ColumnT, std::variant>::T;
 
     ColumnEnum m_column;
 
@@ -139,6 +193,7 @@ private:
 
 public:
     Column(TypeId id);
+    Column(Value val);
 
     template <TypeId id>
     Column(ColumnT<id> column) : m_column(std::move(column)) {}
@@ -158,14 +213,20 @@ public:
     };
 
 private:
-    std::vector<ColumnInfo> m_columns;
+    const std::vector<ColumnInfo> m_columns;
 
 public:
     Schema(std::vector<ColumnInfo> columns);
 
     const std::vector<ColumnInfo>& Columns() const;
     size_t IndexOf(std::string_view column_name) const;
+
+    TypeId TypeOf(size_t) const;
+    // TypeId TypeOf(std::string_view column_name) const;
 };
+
+std::shared_ptr<const Schema> AddColumn(const Schema& schema, const Schema::ColumnInfo& info);
+std::shared_ptr<const Schema> AddColumns(const Schema& schema, const std::vector<Schema::ColumnInfo>& cols);
 
 class Batch {
 private:
@@ -174,6 +235,8 @@ private:
 
 public:
     Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> columns);
+
+    std::vector<Column> ExtractColumns();
 
     size_t NRows() const;
     const std::vector<Column>& Columns() const;

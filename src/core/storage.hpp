@@ -22,8 +22,8 @@ private:
 
 public:
     // if read_schema is provided, reads only subset of columns specified by read_schema
-    CurseReader(const std::string& file, std::optional<const Schema*> read_schema = std::nullopt);
-    CurseReader(std::unique_ptr<FileReader> reader, std::optional<const Schema*> read_schema = std::nullopt);
+    CurseReader(const std::string& file, std::optional<Schema> read_schema = std::nullopt);
+    CurseReader(std::unique_ptr<FileReader> reader, std::optional<Schema> read_schema = std::nullopt);
 
     std::unique_ptr<Batch> Next() override;
     std::shared_ptr<const Schema> GetSchema() override;
