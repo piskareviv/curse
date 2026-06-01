@@ -1,7 +1,5 @@
 #include "src/core/operators.hpp"
 
-#include <lzma.h>
-
 #include <chrono>
 #include <csetjmp>
 #include <cstddef>
