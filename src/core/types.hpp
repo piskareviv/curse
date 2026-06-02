@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "src/core/assert.hpp"
-#include "src/core/util.hpp"
 
 namespace curse {
 
