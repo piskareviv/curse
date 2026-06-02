@@ -293,11 +293,12 @@ public:
 
         const Schema& sch = *m_stream->GetSchema();
 
-        std::vector<Schema::ColumnInfo> cols = sch.Columns();
+        const auto& cols = sch.Columns();
+        std::vector<Schema::ColumnInfo> new_cols = cols;
 
         std::unordered_map<std::string, size_t> map;
-        for (size_t i = 0; i < cols.size(); i++) {
-            map[cols[i].name] = i;
+        for (size_t i = 0; i < new_cols.size(); i++) {
+            map[new_cols[i].name] = i;
         }
 
         m_ops_input_cols.resize(m_ops.size());
@@ -310,15 +311,15 @@ public:
                 ENSURE(map.contains(name));
 
                 size_t ind = map[name];
-                types.push_back(cols[ind].type);
+                types.push_back(new_cols[ind].type);
                 m_ops_input_cols[i].push_back(ind);
             }
 
-            cols.push_back({.name = op.m_output_col, .type = op.m_result_type(types)});
             map[op.m_output_col] = cols.size() + i;
+            new_cols.push_back({.name = op.m_output_col, .type = op.m_result_type(types)});
         }
 
-        m_schema = std::make_shared<const Schema>(cols);
+        m_schema = std::make_shared<const Schema>(new_cols);
     }
 
     std::unique_ptr<Batch> Next() override {
