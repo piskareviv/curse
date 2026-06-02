@@ -36,7 +36,7 @@ Transform Transform::LogicalNot() {
         [=](const Column& col) {
             const ColumnT<TypeId::Int8>& cl = std::get<ColumnT<TypeId::Int8>>(col.Values());
             ColumnT<TypeId::Int8> res;
-            res.values.reserve(cl.Size());
+            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 res.Append(!cl[i]);
             }
@@ -50,7 +50,7 @@ Transform Transform::Strlen() {
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::Int64> res;
-            res.values.reserve(cl.Size());
+            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 res.Append(cl[i].size());
             }
@@ -117,7 +117,7 @@ Transform Transform::RegexpSearch(std::string pattern) {
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::Int8> res;
-            res.values.reserve(cl.Size());
+            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 bool found = std::regex_search(cl[i], re);
                 res.Append(found);
@@ -134,7 +134,7 @@ Transform Transform::RegexpReplace(std::string pattern, std::string format) {
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::String> res;
-            res.values.reserve(cl.Size());
+            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 std::string s = std::regex_replace(cl[i], re, format);
                 res.Append(s);
@@ -149,7 +149,7 @@ Transform Transform::ExtractMinute() {
         [=](const Column& col) {
             const ColumnT<TypeId::Timestamp>& cl = std::get<ColumnT<TypeId::Timestamp>>(col.Values());
             ColumnT<TypeId::Int64> res;
-            res.values.reserve(cl.Size());
+            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 std::chrono::system_clock::time_point ts = cl.values[i];
                 auto minutes = std::chrono::duration_cast<std::chrono::minutes>(ts.time_since_epoch()).count();
@@ -165,7 +165,7 @@ Transform Transform::TruncateToMinutes() {
         [=](const Column& col) {
             const ColumnT<TypeId::Timestamp>& cl = std::get<ColumnT<TypeId::Timestamp>>(col.Values());
             ColumnT<TypeId::Timestamp> res;
-            res.values.reserve(cl.Size());
+            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 std::chrono::system_clock::time_point ts = cl.values[i];
                 std::chrono::system_clock::time_point tr = std::chrono::floor<std::chrono::minutes>(ts);
@@ -209,7 +209,7 @@ ColumnOperation ColumnOperation::LogicalAnd(std::string col1, std::string col2, 
         ENSURE(col2.Size() == sz);
 
         ColumnT<TypeId::Int8> col;
-        col.values.reserve(sz);
+        // col.values.reserve(sz);
         for (size_t i = 0; i < sz; i++) {
             col.Append(cl1[i] && cl2[i]);
         }
@@ -232,7 +232,7 @@ ColumnOperation ColumnOperation::LogicalOr(std::string col1, std::string col2, s
         ENSURE(col2.Size() == sz);
 
         ColumnT<TypeId::Int8> col;
-        col.values.reserve(sz);
+        // col.values.reserve(sz);
         for (size_t i = 0; i < sz; i++) {
             col.Append(cl1[i] || cl2[i]);
         }
@@ -259,7 +259,7 @@ ColumnOperation ColumnOperation::Select(std::string mask_col, std::string col1, 
                 ENSURE(cl2.Size() == sz && cl3.Size() == sz);
 
                 ColumnT<id> result;
-                result.values.reserve(sz);
+                // result.values.reserve(sz);
                 for (size_t i = 0; i < sz; i++) {
                     result.Append(mask[i] ? cl2[i] : cl3[i]);
                 }

@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <string>
 
 #include "gtest/gtest.h"
 #include "src/core/csv.hpp"
@@ -89,19 +90,22 @@ TEST_F(CSV_IO_Test, InputWorks) {
     ASSERT_EQ(std::get<size_t(curse::TypeId::String)>(batch.Columns()[0].Values())[0], std::string("meow"));
     ASSERT_EQ(std::get<curse::ColumnT<curse::TypeId::String>>(batch.Columns()[0].Values())[0], std::string("meow"));
 
-    std::vector<std::string> col1 = {"meow", "woof", "woof"};
+    ColumnT<curse::TypeId::String> col1;
+    col1.Append(std::vector<std::string>({"meow", "woof", "woof"}));
 
-    std::vector<int64_t> col2 = {123, 456, 456};
+    ColumnT<TypeId::Int64> col2;
+    col2.Append(std::vector<int64_t>{123, 456, 456});
 
-    std::vector<std::chrono::year_month_day> col3 = {
+    ColumnT<curse::TypeId::Date> col3;
+    col3.Append(std::vector{
         std::chrono::year_month_day(2020y, December, 20d),
         std::chrono::year_month_day(2025y, January, 25d),
         std::chrono::year_month_day(2025y, January, 25d),
-    };
+    });
 
-    ASSERT_EQ(std::get<curse::ColumnT<curse::TypeId::String>>(batch.Columns()[0].Values()).values, col1);
-    ASSERT_EQ(std::get<curse::ColumnT<curse::TypeId::Int64>>(batch.Columns()[1].Values()).values, col2);
-    ASSERT_EQ(std::get<curse::ColumnT<curse::TypeId::Date>>(batch.Columns()[2].Values()).values, col3);
+    ASSERT_EQ(std::get<curse::ColumnT<curse::TypeId::String>>(batch.Columns()[0].Values()), col1);
+    ASSERT_EQ(std::get<curse::ColumnT<curse::TypeId::Int64>>(batch.Columns()[1].Values()), col2);
+    ASSERT_EQ(std::get<curse::ColumnT<curse::TypeId::Date>>(batch.Columns()[2].Values()), col3);
 
     ASSERT_ANY_THROW(std::get<curse::ColumnT<curse::TypeId::Timestamp>>(batch.Columns()[2].Values()));
 }

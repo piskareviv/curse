@@ -192,10 +192,10 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Int8 || id == TypeId:
     using T = ReprType<id>::T;
 
     static std::vector<char> ToBytes(const ColumnT<id>& col) {
-        return VecToBytes<T>(col.values);
+        return VecToBytes<T>(col.ToVector());
     }
     static ColumnT<id> FromBytes(std::span<const char> bytes) {
-        return ColumnT<id>{.values = VecFromBytes<T>(bytes)};
+        return ColumnT<id>::FromVector(VecFromBytes<T>(bytes));
     }
 };
 
@@ -206,22 +206,20 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Date || id == TypeId:
     static constexpr TypeId kId = id;
 
     static std::vector<char> ToBytes(const ColumnT<id>& col) {
-        const std::vector<T>& values = col.values;
-
-        std::vector<RawT> vec(values.size());
-        for (size_t i = 0; i < values.size(); i++) {
-            vec[i] = Helper<id>::ToRaw(values[i]);
+        std::vector<RawT> vec(col.Size());
+        for (size_t i = 0; i < col.Size(); i++) {
+            vec[i] = Helper<id>::ToRaw(col[i]);
         }
         return VecToBytes(vec);
     }
 
     static ColumnT<id> FromBytes(std::span<const char> bytes) {
         std::vector<RawT> vec(VecFromBytes<RawT>(bytes));
-        std::vector<T> values(vec.size());
+        ColumnT<id> col;
         for (size_t i = 0; i < vec.size(); i++) {
-            values[i] = Helper<id>::FromRaw(vec[i]);
+            col.Append(Helper<id>::FromRaw(vec[i]));
         }
-        return ColumnT<id>{.values = values};
+        return col;
     }
 };
 
@@ -236,12 +234,9 @@ private:
 
 public:
     static std::vector<char> ToBytes(const ColumnT<id>& col) {
-        const std::vector<std::string>& values = col.values;
-
         std::vector<char> result;
-
-        for (size_t i = 0; i < values.size(); i++) {
-            for (char ch : values[i]) {
+        for (size_t i = 0; i < col.Size(); i++) {
+            for (char ch : col[i]) {
                 if (ch == kDelim || ch == kEscape) {
                     result.push_back(kEscape);
                 }
@@ -255,19 +250,19 @@ public:
 
     static ColumnT<id> FromBytes(std::span<const char> bytes) {
         if (bytes.empty()) {
-            return ColumnT<id>{.values = {}};
+            return ColumnT<id>();
         }
 
         ENSURE_MSG(bytes.back() == 0, "invalid input");
 
-        std::vector<std::string> values;
+        ColumnT<id> col;
         std::string token;
 
         size_t i = 0;
         for (; i + 1 < bytes.size(); i++) {
             char ch = bytes[i];
             if (ch == kDelim) {
-                values.emplace_back(std::move(token));
+                col.Append(std::move(token));
                 token.clear();
             } else {
                 if (ch != kEscape) {
@@ -280,9 +275,9 @@ public:
         }
         ENSURE_MSG(i + 1 == bytes.size(), "invalid input");
 
-        values.emplace_back(std::move(token));
+        col.Append(std::move(token));
 
-        return ColumnT<id>{.values = std::move(values)};
+        return col;
     }
 };
 

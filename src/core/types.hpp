@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <string>
@@ -186,7 +187,7 @@ struct ColumnT<id> {
     using T = ReprType<id>::T;
     static constexpr TypeId kId = id;
 
-    std::vector<T> values;
+    std::deque<T> values;
 
     void Append(T value) {
         values.push_back(std::move(value));
@@ -202,6 +203,15 @@ struct ColumnT<id> {
         for (const auto& value : col.values) {
             Append(value);
         }
+    }
+
+    std::vector<T> ToVector() const {
+        return std::vector<T>(values.begin(), values.end());
+    }
+    static ColumnT FromVector(const std::vector<T>& vec) {
+        ColumnT col;
+        col.values.assign(vec.begin(), vec.end());
+        return col;
     }
 
     T& operator[](size_t ind) {
@@ -221,21 +231,21 @@ struct ColumnT<id> {
 
     ColumnT<id> Filter(std::span<const char> filt) const {
         ENSURE(filt.size() == Size());
-        std::vector<T> vec;
+        ColumnT<id> col;
         for (size_t i = 0; i < values.size(); i++) {
             if (filt[i]) {
-                vec.push_back(values[i]);
+                col.Append(values[i]);
             }
         }
-        return ColumnT<id>{.values = std::move(vec)};
+        return col;
     }
 
     ColumnT<id> Select(std::span<const size_t> inds) const {
-        std::vector<T> vec;
+        ColumnT<id> col;
         for (size_t i = 0; i < inds.size(); i++) {
-            vec.push_back(values[inds[i]]);
+            col.Append(values[inds[i]]);
         }
-        return ColumnT<id>{.values = std::move(vec)};
+        return col;
     }
 
     void StableArgsort(std::span<size_t> sp, bool reversed = false) const {

@@ -85,7 +85,10 @@ public:
                         std::visit(
                             [&]<TypeId id>(ColumnT<id>& col) {
                                 auto& cl = std::get<ColumnT<id>>(cols[j].Values());
-                                col.Append(std::span(cl.values).subspan(i, dlt));
+                                // col.Append(std::span(cl.values).subspan(i, dlt));
+                                for (size_t k = 0; k < dlt; k++) {
+                                    col.Append(cl[i + k]);
+                                }
                             },
                             vec[j].Values());
                     }
