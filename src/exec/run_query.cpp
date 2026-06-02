@@ -245,7 +245,7 @@ std::unique_ptr<BatchStream> Q18(const std::string& file) {
     // Add a column for the extracted minute
     auto minute_op = ColumnOperation(Transform::ExtractMinute(), "EventTime", "m");
 
-    auto transform = MakeColumnTransformOperator({minute_op});
+    auto transform = TransformOperator({minute_op});
 
     auto group_by =
         GroupByOperator({"UserID", "m", "SearchPhrase"},
@@ -283,19 +283,19 @@ std::unique_ptr<BatchStream> Q26(const std::string& file) {
 std::unique_ptr<BatchStream> Q19(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"UserID"}));
 
-    auto cmp = MakeColumnTransformOperator({ColumnOperation(
+    auto cmp = TransformOperator({ColumnOperation(
         Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int64>{435090932899640449LL})),
         "UserID", "match")});
 
     FilterOperator filter("match");
 
-    return std::move(reader) >= cmp >= filter >= MakeDropOperator({"match"});
+    return std::move(reader) >= cmp >= filter >= DropOperator({"match"});
 }
 
 std::unique_ptr<BatchStream> Q20(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"URL"}));
 
-    auto trs = MakeColumnTransformOperator({ColumnOperation(Transform::RegexpSearch("google"), "URL", "match")});
+    auto trs = TransformOperator({ColumnOperation(Transform::RegexpSearch("google"), "URL", "match")});
 
     FilterOperator filter("match");
 
@@ -307,7 +307,7 @@ std::unique_ptr<BatchStream> Q20(const std::string& file) {
 std::unique_ptr<BatchStream> Q21(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"SearchPhrase", "URL"}));
 
-    auto trs = MakeColumnTransformOperator({ColumnOperation(Transform::RegexpSearch("google"), "URL", "google")});
+    auto trs = TransformOperator({ColumnOperation(Transform::RegexpSearch("google"), "URL", "google")});
 
     FilterOperator google("google");
     FilterOperator phrase("SearchPhrase");
@@ -326,14 +326,13 @@ std::unique_ptr<BatchStream> Q22(const std::string& file) {
     auto reader =
         std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"Title", "URL", "SearchPhrase", "UserID"}));
 
-    auto trs =
-        MakeColumnTransformOperator({ColumnOperation(Transform::RegexpSearch("Google"), "Title", "title_match"),
+    auto trs = TransformOperator({ColumnOperation(Transform::RegexpSearch("Google"), "Title", "title_match"),
 
-                                     ColumnOperation(Transform::RegexpSearch("\\.google\\."), "URL", "url_google"),
+                                  ColumnOperation(Transform::RegexpSearch("\\.google\\."), "URL", "url_google"),
 
-                                     ColumnOperation(Transform::LogicalNot(), "url_google", "url_ok"),
+                                  ColumnOperation(Transform::LogicalNot(), "url_google", "url_ok"),
 
-                                     ColumnOperation::LogicalAnd("title_match", "url_ok", "keep")});
+                                  ColumnOperation::LogicalAnd("title_match", "url_ok", "keep")});
 
     FilterOperator keep("keep");
     FilterOperator phrase("SearchPhrase");
@@ -354,7 +353,7 @@ std::unique_ptr<BatchStream> Q22(const std::string& file) {
 std::unique_ptr<BatchStream> Q23(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, kHitsSchema);
 
-    auto trs = MakeColumnTransformOperator({ColumnOperation(Transform::RegexpSearch("google"), "URL", "match")});
+    auto trs = TransformOperator({ColumnOperation(Transform::RegexpSearch("google"), "URL", "match")});
 
     FilterOperator filter("match");
 
@@ -370,14 +369,14 @@ std::unique_ptr<BatchStream> Q27(const std::string& file) {
 
     FilterOperator non_empty("URL");
 
-    auto trs = MakeColumnTransformOperator({ColumnOperation(Transform::Strlen(), "URL", "len")});
+    auto trs = TransformOperator({ColumnOperation(Transform::Strlen(), "URL", "len")});
 
     GroupByOperator group_by({"CounterID"}, {
                                                 {.tp = AggType::Average, .inp_col = "len", .out_col = "l"},
                                                 {.tp = AggType::Count, .inp_col = "CounterID", .out_col = "c"},
                                             });
 
-    auto having = MakeColumnTransformOperator({ColumnOperation(
+    auto having = TransformOperator({ColumnOperation(
         Transform::Compare(Transform::ComparisonType::GreaterThan, Value(ValueT<TypeId::Int64>{100000})), "c",
         "keep")});
 
@@ -385,7 +384,7 @@ std::unique_ptr<BatchStream> Q27(const std::string& file) {
 
     SortOperator sort({{.inp_col = "l", .reversed = true}}, 25);
 
-    auto drop = MakeDropOperator({"keep"});
+    auto drop = DropOperator({"keep"});
 
     return std::move(reader) >= non_empty >= trs >= group_by >= having >= keep >= drop >= sort;
 }
@@ -395,7 +394,7 @@ std::unique_ptr<BatchStream> Q28(const std::string& file) {
 
     FilterOperator non_empty("Referer");
 
-    auto trs = MakeColumnTransformOperator(
+    auto trs = TransformOperator(
         {ColumnOperation(Transform::RegexpReplace("^https?://(?:www\\.)?([^/]+)/.*$", "$1"), "Referer", "k"),
 
          ColumnOperation(Transform::Strlen(), "Referer", "len")});
@@ -406,7 +405,7 @@ std::unique_ptr<BatchStream> Q28(const std::string& file) {
                                         {.tp = AggType::Min, .inp_col = "Referer", .out_col = "r"},
                                     });
 
-    auto having = MakeColumnTransformOperator({ColumnOperation(
+    auto having = TransformOperator({ColumnOperation(
         Transform::Compare(Transform::ComparisonType::GreaterThan, Value(ValueT<TypeId::Int64>{100000})), "c",
         "keep")});
 
@@ -486,8 +485,7 @@ std::unique_ptr<BatchStream> Q33(const std::string& file) {
 std::unique_ptr<BatchStream> Q34(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"URL"}));
 
-    auto trs = MakeColumnTransformOperator(
-        {ColumnOperation(Transform::Constant(Value(ValueT<TypeId::Int32>{1})), "URL", "one")});
+    auto trs = TransformOperator({ColumnOperation(Transform::Constant(Value(ValueT<TypeId::Int32>{1})), "URL", "one")});
 
     GroupByOperator group_by({"one", "URL"}, {{.tp = AggType::Count, .inp_col = "URL", .out_col = "c"}});
 
@@ -504,7 +502,7 @@ std::unique_ptr<BatchStream> Q36(const std::string& file) {
 
     auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
 
-    auto filt = MakeColumnTransformOperator({
+    auto filt = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                         "CounterID", "c"),
 
@@ -542,7 +540,7 @@ std::unique_ptr<BatchStream> Q37(const std::string& file) {
 
     auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
 
-    auto filt = MakeColumnTransformOperator({
+    auto filt = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                         "CounterID", "c"),
         ColumnOperation(Transform::Compare(Transform::ComparisonType::GreaterThanOrEqual, d1), "EventDate", "ge"),
@@ -575,7 +573,7 @@ std::unique_ptr<BatchStream> Q38(const std::string& file) {
     auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-01")});
     auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
 
-    auto filt = MakeColumnTransformOperator({
+    auto filt = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                         "CounterID", "c"),
         ColumnOperation(Transform::Compare(Transform::ComparisonType::GreaterThanOrEqual, d1), "EventDate", "ge"),
@@ -618,7 +616,7 @@ std::unique_ptr<BatchStream> Q39(const std::string& file) {
 
     auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
 
-    auto trs = MakeColumnTransformOperator(
+    auto trs = TransformOperator(
         {ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                          "CounterID", "c"),
 
@@ -664,7 +662,7 @@ std::unique_ptr<BatchStream> Q40(const std::string& file) {
 
     auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
 
-    auto trs = MakeColumnTransformOperator({
+    auto trs = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                         "CounterID", "c"),
 
@@ -726,7 +724,7 @@ std::unique_ptr<BatchStream> Q41(const std::string& file) {
 
     auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
 
-    auto cmp = MakeColumnTransformOperator({
+    auto cmp = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                         "CounterID", "c"),
 
@@ -745,23 +743,23 @@ std::unique_ptr<BatchStream> Q41(const std::string& file) {
             "URLHash", "u"),
     });
 
-    auto and1 = MakeColumnTransformOperator({
+    auto and1 = TransformOperator({
         ColumnOperation::LogicalAnd("c", "ge", "k1"),
     });
 
-    auto and2 = MakeColumnTransformOperator({
+    auto and2 = TransformOperator({
         ColumnOperation::LogicalAnd("k1", "le", "k2"),
     });
 
-    auto and3 = MakeColumnTransformOperator({
+    auto and3 = TransformOperator({
         ColumnOperation::LogicalAnd("k2", "r", "k3"),
     });
 
-    auto and4 = MakeColumnTransformOperator({
+    auto and4 = TransformOperator({
         ColumnOperation::LogicalAnd("k3", "d", "k4"),
     });
 
-    auto and5 = MakeColumnTransformOperator({
+    auto and5 = TransformOperator({
         ColumnOperation::LogicalAnd("k4", "u", "keep"),
     });
 
@@ -799,7 +797,7 @@ std::unique_ptr<BatchStream> Q42(const std::string& file) {
 
     auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-15")});
 
-    auto cmp = MakeColumnTransformOperator({
+    auto cmp = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                         "CounterID", "c"),
 
@@ -814,23 +812,23 @@ std::unique_ptr<BatchStream> Q42(const std::string& file) {
                         "DontCountHits", "d"),
     });
 
-    auto and1 = MakeColumnTransformOperator({
+    auto and1 = TransformOperator({
         ColumnOperation::LogicalAnd("c", "ge", "k1"),
     });
 
-    auto and2 = MakeColumnTransformOperator({
+    auto and2 = TransformOperator({
         ColumnOperation::LogicalAnd("k1", "le", "k2"),
     });
 
-    auto and3 = MakeColumnTransformOperator({
+    auto and3 = TransformOperator({
         ColumnOperation::LogicalAnd("k2", "r", "k3"),
     });
 
-    auto and4 = MakeColumnTransformOperator({
+    auto and4 = TransformOperator({
         ColumnOperation::LogicalAnd("k3", "d", "keep"),
     });
 
-    auto trunc = MakeColumnTransformOperator({ColumnOperation(Transform::TruncateToMinutes(), "EventTime", "M")});
+    auto trunc = TransformOperator({ColumnOperation(Transform::TruncateToMinutes(), "EventTime", "M")});
 
     FilterOperator keep("keep");
 
@@ -842,8 +840,17 @@ std::unique_ptr<BatchStream> Q42(const std::string& file) {
 
     SortOperator sort2({{.inp_col = "M"}}, 10);
 
-    return std::move(reader) >= cmp >= and1 >= and2 >= and3 >= and4 >= keep >= trunc >= group_by >= sort1 >= skip >=
-           sort2;
+    return std::move(reader) >= cmp  //
+           >= and1                   //
+           >= and2                   //
+           >= and3                   //
+           >= and4                   //
+           >= keep                   //
+           >= trunc                  //
+           >= group_by               //
+           >= sort1                  //
+           >= skip                   //
+           >= sort2;
 }
 
 // ##################################
