@@ -1,3 +1,5 @@
+// часть запросов была захадкожена с помощью LLM
+
 #include <chrono>
 #include <cstdlib>
 #include <format>
@@ -242,7 +244,6 @@ std::unique_ptr<BatchStream> Q17(const std::string& file) {
 std::unique_ptr<BatchStream> Q18(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"UserID", "EventTime", "SearchPhrase"}));
 
-    // Add a column for the extracted minute
     auto minute_op = ColumnOperation(Transform::ExtractMinute(), "EventTime", "m");
 
     auto transform = TransformOperator({minute_op});
@@ -710,15 +711,9 @@ std::unique_ptr<BatchStream> Q40(const std::string& file) {
 // '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND DontCountHits = 0 AND URLHash = 2868770270353813622
 // GROUP BY WindowClientWidth, WindowClientHeight ORDER BY PageViews DESC LIMIT 10 OFFSET 10000;
 std::unique_ptr<BatchStream> Q41(const std::string& file) {
-    auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {
-                                                                                 "WindowClientWidth",
-                                                                                 "WindowClientHeight",
-                                                                                 "CounterID",
-                                                                                 "EventDate",
-                                                                                 "IsRefresh",
-                                                                                 "DontCountHits",
-                                                                                 "URLHash",
-                                                                             }));
+    auto reader = std::make_unique<CurseReader>(
+        file, SubSchema(kHitsSchema, {"WindowClientWidth", "WindowClientHeight", "CounterID", "EventDate", "IsRefresh",
+                                      "DontCountHits", "URLHash"}));
 
     auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-01")});
 
@@ -727,49 +722,25 @@ std::unique_ptr<BatchStream> Q41(const std::string& file) {
     auto cmp = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                         "CounterID", "c"),
-
         ColumnOperation(Transform::Compare(Transform::ComparisonType::GreaterThanOrEqual, d1), "EventDate", "ge"),
-
         ColumnOperation(Transform::Compare(Transform::ComparisonType::LessThanOrEqual, d2), "EventDate", "le"),
-
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
                         "IsRefresh", "r"),
-
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
                         "DontCountHits", "d"),
-
         ColumnOperation(
             Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int64>{2868770270353813622LL})),
             "URLHash", "u"),
     });
 
-    auto and1 = TransformOperator({
-        ColumnOperation::LogicalAnd("c", "ge", "k1"),
-    });
+    auto and1 = TransformOperator({ColumnOperation::LogicalAnd("c", "ge", "k1")});
+    auto and2 = TransformOperator({ColumnOperation::LogicalAnd("k1", "le", "k2")});
+    auto and3 = TransformOperator({ColumnOperation::LogicalAnd("k2", "r", "k3")});
+    auto and4 = TransformOperator({ColumnOperation::LogicalAnd("k3", "d", "k4")});
+    auto and5 = TransformOperator({ColumnOperation::LogicalAnd("k4", "u", "keep")});
 
-    auto and2 = TransformOperator({
-        ColumnOperation::LogicalAnd("k1", "le", "k2"),
-    });
-
-    auto and3 = TransformOperator({
-        ColumnOperation::LogicalAnd("k2", "r", "k3"),
-    });
-
-    auto and4 = TransformOperator({
-        ColumnOperation::LogicalAnd("k3", "d", "k4"),
-    });
-
-    auto and5 = TransformOperator({
-        ColumnOperation::LogicalAnd("k4", "u", "keep"),
-    });
-
-    GroupByOperator group_by({"WindowClientWidth", "WindowClientHeight"}, {
-                                                                              {
-                                                                                  .tp = AggType::Count,
-                                                                                  .inp_col = "WindowClientWidth",
-                                                                                  .out_col = "PageViews",
-                                                                              },
-                                                                          });
+    GroupByOperator group_by({"WindowClientWidth", "WindowClientHeight"},
+                             {{.tp = AggType::Count, .inp_col = "WindowClientWidth", .out_col = "PageViews"}});
 
     size_t to_skip = 10000;
     size_t limit = 10;
@@ -878,14 +849,71 @@ std::unique_ptr<BatchStream> Q42(const std::string& file) {
 // SUM(ResolutionWidth + 80), SUM(ResolutionWidth + 81), SUM(ResolutionWidth + 82), SUM(ResolutionWidth + 83),
 // SUM(ResolutionWidth + 84), SUM(ResolutionWidth + 85), SUM(ResolutionWidth + 86), SUM(ResolutionWidth + 87),
 // SUM(ResolutionWidth + 88), SUM(ResolutionWidth + 89) FROM hits;
-std::unique_ptr<BatchStream> Q29(const std::string&) {
-    return nullptr;
+std::unique_ptr<BatchStream> Q29(const std::string& file) {
+    auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"ResolutionWidth"}));
+
+    AggregationOperator agg({
+        {.tp = AggType::Sum, .inp_col = "ResolutionWidth", .out_col = "sum0"},
+        {.tp = AggType::Count, .inp_col = "ResolutionWidth", .out_col = "cnt"},
+    });
+
+    std::vector<ColumnOperation> ops;
+    std::vector<std::string> result_cols = {"sum0"};
+
+    for (int i = 1; i < 90; ++i) {
+        const auto c = std::format("c{}", i);
+        const auto mul = std::format("mul{}", i);
+        const auto out = std::format("sum{}", i);
+
+        ops.emplace_back(Transform::Constant(Value(ValueT<TypeId::Int64>{i})), "cnt", c);
+
+        ops.emplace_back(ColumnOperation::ArithmeticOp("cnt", c, mul, ColumnOperation::Arithmetic::Mul, TypeId::Int64));
+
+        ops.emplace_back(
+            ColumnOperation::ArithmeticOp("sum0", mul, out, ColumnOperation::Arithmetic::Add, TypeId::Int64));
+
+        result_cols.push_back(out);
+    }
+
+    auto trs = TransformOperator(std::move(ops));
+    auto select = SelectOperator(std::move(result_cols));
+
+    return std::move(reader) >= agg >= trs >= select;
 }
 
 // SELECT ClientIP, ClientIP - 1, ClientIP - 2, ClientIP - 3, COUNT(*) AS c FROM hits GROUP BY ClientIP, ClientIP - 1,
 // ClientIP - 2, ClientIP - 3 ORDER BY c DESC LIMIT 10;
-std::unique_ptr<BatchStream> Q35(const std::string&) {
-    return nullptr;
+std::unique_ptr<BatchStream> Q35(const std::string& file) {
+    auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"ClientIP"}));
+
+    auto group_by = GroupByOperator({"ClientIP"}, {
+                                                      {.tp = AggType::Count, .inp_col = "ClientIP", .out_col = "c"},
+                                                  });
+
+    auto sort = SortOperator({{.inp_col = "c", .reversed = true}}, 10);
+
+    auto trs = TransformOperator({
+        ColumnOperation(Transform::Constant(Value(ValueT<TypeId::Int32>{1})), "ClientIP", "one"),
+        ColumnOperation(Transform::Constant(Value(ValueT<TypeId::Int32>{2})), "ClientIP", "two"),
+        ColumnOperation(Transform::Constant(Value(ValueT<TypeId::Int32>{3})), "ClientIP", "three"),
+
+        ColumnOperation::ArithmeticOp("ClientIP", "one", "ClientIP_m1", ColumnOperation::Arithmetic::Sub,
+                                      TypeId::Int32),
+        ColumnOperation::ArithmeticOp("ClientIP", "two", "ClientIP_m2", ColumnOperation::Arithmetic::Sub,
+                                      TypeId::Int32),
+        ColumnOperation::ArithmeticOp("ClientIP", "three", "ClientIP_m3", ColumnOperation::Arithmetic::Sub,
+                                      TypeId::Int32),
+    });
+
+    auto select = SelectOperator({
+        "ClientIP",
+        "ClientIP_m1",
+        "ClientIP_m2",
+        "ClientIP_m3",
+        "c",
+    });
+
+    return std::move(reader) >= group_by >= sort >= trs >= select;
 }
 
 }  // namespace Q

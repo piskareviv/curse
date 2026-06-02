@@ -62,8 +62,25 @@ private:
 public:
     ColumnOperation(Transform trs, std::string inp_col, std::string out_col);
 
+    enum class Logical {
+        And,
+        Or,
+    };
+
+    enum class Arithmetic {
+        Add,
+        Sub,
+        Mul,
+    };
+
+    static ColumnOperation LogicalOp(std::string col1, std::string col2, std::string out_col, Logical op);
+
     static ColumnOperation LogicalAnd(std::string col1, std::string col2, std::string out_col);
     static ColumnOperation LogicalOr(std::string col1, std::string col2, std::string out_col);
+    static ColumnOperation LogicalNot(std::string col, std::string out_col);
+
+    static ColumnOperation ArithmeticOp(std::string col1, std::string col2, std::string out_col, Arithmetic op,
+                                        TypeId out_type);
 
     // dst[i] = col[i] ? col1[i] : col2[i]
     static ColumnOperation Select(std::string mask_col, std::string col1, std::string col2, std::string out_col);

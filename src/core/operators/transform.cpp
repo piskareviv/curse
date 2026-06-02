@@ -1,9 +1,12 @@
 #include "transform.hpp"
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <regex>
+#include <type_traits>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "src/core/assert.hpp"
@@ -196,9 +199,9 @@ ColumnOperation::ColumnOperation(Transform trs, std::string inp_col, std::string
       m_input_cols{std::move(inp_col)},
       m_output_col(std::move(out_col)) {}
 
-ColumnOperation ColumnOperation::LogicalAnd(std::string col1, std::string col2, std::string out_col) {
+ColumnOperation ColumnOperation::LogicalOp(std::string col1, std::string col2, std::string out_col, Logical op) {
     std::function<Column(std::span<std::reference_wrapper<const Column>>)> trs =
-        [](std::span<std::reference_wrapper<const Column>> sp) -> Column {
+        [=](std::span<std::reference_wrapper<const Column>> sp) -> Column {
         ENSURE(sp.size() == 2);
         const Column& col1 = sp[0];
         const Column& col2 = sp[1];
@@ -209,9 +212,15 @@ ColumnOperation ColumnOperation::LogicalAnd(std::string col1, std::string col2, 
         ENSURE(col2.Size() == sz);
 
         ColumnT<TypeId::Int8> col;
-        // col.values.reserve(sz);
         for (size_t i = 0; i < sz; i++) {
-            col.Append(cl1[i] && cl2[i]);
+            switch (op) {
+                case Logical::And:
+                    col.Append(cl1[i] && cl2[i]);
+                    break;
+                case Logical::Or:
+                    col.Append(cl1[i] || cl2[i]);
+                    break;
+            }
         }
         return Column(std::move(col));
     };
@@ -219,24 +228,67 @@ ColumnOperation ColumnOperation::LogicalAnd(std::string col1, std::string col2, 
     return ColumnOperation(std::move(trs), result_type, {col1, col2}, out_col);
 }
 
+ColumnOperation ColumnOperation::LogicalAnd(std::string col1, std::string col2, std::string out_col) {
+    return LogicalOp(std::move(col1), std::move(col2), std::move(out_col), Logical::And);
+}
+
 ColumnOperation ColumnOperation::LogicalOr(std::string col1, std::string col2, std::string out_col) {
+    return LogicalOp(std::move(col1), std::move(col2), std::move(out_col), Logical::Or);
+}
+
+ColumnOperation ColumnOperation::LogicalNot(std::string col, std::string out_col) {
+    return ColumnOperation(Transform::LogicalNot(), std::move(col), std::move(out_col));
+}
+
+ColumnOperation ColumnOperation::ArithmeticOp(std::string col1, std::string col2, std::string out_col, Arithmetic op,
+                                              TypeId out_type) {
     std::function<Column(std::span<std::reference_wrapper<const Column>>)> trs =
-        [](std::span<std::reference_wrapper<const Column>> sp) -> Column {
+        [=](std::span<std::reference_wrapper<const Column>> sp) -> Column {
         ENSURE(sp.size() == 2);
         const Column& col1 = sp[0];
         const Column& col2 = sp[1];
-        const ColumnT<TypeId::Int8>& cl1 = std::get<ColumnT<TypeId::Int8>>(col1.Values());
-        const ColumnT<TypeId::Int8>& cl2 = std::get<ColumnT<TypeId::Int8>>(col2.Values());
 
         size_t sz = col1.Size();
         ENSURE(col2.Size() == sz);
 
-        ColumnT<TypeId::Int8> col;
-        // col.values.reserve(sz);
-        for (size_t i = 0; i < sz; i++) {
-            col.Append(cl1[i] || cl2[i]);
-        }
-        return Column(std::move(col));
+        Column col(out_type);
+
+        auto aux = [sz, op]<TypeId id1, TypeId id2, TypeId id>(const ColumnT<id1>& cl1, const ColumnT<id2>& cl2,
+                                                               ColumnT<id>& cl) {
+            using T = ColumnT<id>::T;
+            for (size_t i = 0; i < sz; i++) {
+                switch (op) {
+                    case Arithmetic::Add:
+                        cl.Append(static_cast<T>(cl1[i]) + static_cast<T>(cl2[i]));
+                        break;
+                    case Arithmetic::Sub:
+                        cl.Append(static_cast<T>(cl1[i]) - static_cast<T>(cl2[i]));
+                        break;
+                    case Arithmetic::Mul:
+                        cl.Append(static_cast<T>(cl1[i]) * static_cast<T>(cl2[i]));
+                        break;
+                }
+            };
+        };
+
+        std::visit(
+            [&]<TypeId id1>(const ColumnT<id1>& cl1) {
+                std::visit(
+                    [&]<TypeId id2>(const ColumnT<id2>& cl2) {
+                        auto visitor = [&]<TypeId id>(ColumnT<id>& cl) -> void {
+                            if constexpr (IsIntegral(id1) && IsIntegral(id2) && IsIntegral(id)) {
+                                aux(cl1, cl2, cl);
+                            } else {
+                                ENSURE_MSG(false, "non integral types don't support arithmetic");
+                            }
+                        };
+                        std::visit(visitor, col.Values());
+                    },
+                    col2.Values());
+            },
+            col1.Values());
+
+        return col;
     };
     auto result_type = [](std::span<TypeId>) { return TypeId::Int8; };
     return ColumnOperation(std::move(trs), result_type, {col1, col2}, out_col);

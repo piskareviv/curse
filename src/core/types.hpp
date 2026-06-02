@@ -46,6 +46,8 @@ constexpr bool IsIntegral(TypeId id) {
            id == TypeId::Int128;
 }
 
+// struct IsIntegral
+
 void ExecFor(TypeId id, auto&& func) {
     [&]<TypeId... types>(TypeIdHolder<types...>) {
         size_t cnt = 0;
