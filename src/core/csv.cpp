@@ -2,25 +2,31 @@
 
 #include <cstddef>
 #include <fstream>
+#include <functional>
+#include <future>
 #include <istream>
 #include <memory>
 #include <ostream>
 #include <string_view>
+#include <thread>
 #include <variant>
 #include <vector>
 
 #include "dependencies/vince/csv.hpp"
 #include "src/core/convert.hpp"
+#include "src/core/thread_pool.hpp"
 #include "src/core/types.hpp"
 
 namespace curse {
 
+static const auto kFormat = csv::CSVFormat().no_header();
+
 struct CsvReader::Impl {
     csv::CSVReader reader;
 
-    Impl(std::istream& input) : reader(input, csv::CSVFormat().no_header()) {}
-    Impl(std::unique_ptr<std::istream> input) : reader(std::move(input), csv::CSVFormat().no_header()) {}
-    Impl(const std::string& file) : reader(file, csv::CSVFormat().no_header()) {}
+    Impl(std::istream& input) : reader(input, kFormat) {}
+    Impl(std::unique_ptr<std::istream> input) : reader(std::move(input), kFormat) {}
+    Impl(const std::string& file) : reader(file, kFormat) {}
 };
 
 CsvReader::CsvReader(std::istream& input, const Schema& schema, size_t target_batch_bytes)
@@ -49,6 +55,7 @@ std::unique_ptr<Batch> CsvReader::Next() {
     if (m_end_reached) {
         return nullptr;
     }
+
     const size_t n_cols = m_schema->Columns().size();
     std::vector<Column> columns;
 
@@ -60,28 +67,69 @@ std::unique_ptr<Batch> CsvReader::Next() {
     size_t total_bytes = 0;
 
     csv::CSVRow row;
+    std::vector<csv::CSVRow> rows;
+
+    const size_t n_funcs = std::thread::hardware_concurrency();
+
+    std::vector<std::function<void()>> funcs(n_funcs);
+    std::vector<std::future<void>> futures(n_funcs);
+
+    for (size_t ind = 0; ind < n_funcs; ind++) {
+        size_t beg = ind * n_cols / n_funcs;
+        size_t end = (ind + 1) * n_cols / n_funcs;
+
+        auto f = [&rows, &columns, beg, end] {
+            size_t n_rows = rows.size();
+
+            for (size_t i = beg; i < end; i++) {
+                auto visitor = [&rows, i, n_rows]<TypeId id>(ColumnT<id>& col) {
+                    for (size_t j = 0; j < n_rows; j++) {
+                        const csv::CSVField& field = rows[j][i];
+                        std::string_view token = field.get_sv();
+                        col.Append(Convert<typename ReprType<id>::T>::FromString(token));
+                    }
+                };
+                std::visit(visitor, columns[i].Values());
+            }
+        };
+
+        funcs[ind] = f;
+    }
+
+    auto flush_rows = [&] {
+        for (size_t i = 0; i < n_funcs; i++) {
+            futures[i] = thread_pool.Push(funcs[i]);
+        }
+        for (size_t i = 0; i < n_funcs; i++) {
+            futures[i].wait();
+        }
+
+        rows.clear();
+    };
+
+    size_t current_bytes = 0;
+
     while (rows_read == 0 || total_bytes < m_target_batch_size) {
         if (!m_impl->reader.read_row(row)) {
             break;
         }
-
         ENSURE(row.size() == n_cols);
 
-        for (size_t i = 0; i < n_cols; i++) {
-            const csv::CSVField& field = row[i];
-            std::string_view token = field.get_sv();
-
-            std::visit(
-                [&]<TypeId id>(ColumnT<id>& col) {
-                    col.values.push_back(Convert<typename ReprType<id>::T>::FromString(token));
-                },
-                columns[i].Values());
-
-            total_bytes += token.size();
-        }
+        size_t row_bytes = row.raw_str().size();
 
         rows_read += 1;
+        total_bytes += row_bytes;
+        current_bytes += row_bytes;
+
+        rows.push_back(std::move(row));
+
+        if (current_bytes >= 1 * 1024 * 1024) {
+            flush_rows();
+            current_bytes = 0;
+        }
     }
+
+    flush_rows();
 
     if (rows_read == 0) {
         m_end_reached = true;

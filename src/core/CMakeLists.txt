@@ -40,6 +40,8 @@ add_library(curse_core
   operators/skip.cpp
   operators/sort.cpp
   operators/transform.cpp
+  thread_pool.hpp
+  thread_pool.cpp
 )
   
 target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})
