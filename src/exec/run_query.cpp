@@ -363,6 +363,8 @@ std::unique_ptr<BatchStream> Q23(const std::string& file) {
     return std::move(reader) >= trs >= filter >= sort;
 }
 
+// SELECT CounterID, AVG(length(URL)) AS l, COUNT(*) AS c FROM hits WHERE URL <> '' GROUP BY CounterID HAVING COUNT(*) >
+// 100000 ORDER BY l DESC LIMIT 25;
 std::unique_ptr<BatchStream> Q27(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"CounterID", "URL"}));
 
@@ -383,7 +385,9 @@ std::unique_ptr<BatchStream> Q27(const std::string& file) {
 
     SortOperator sort({{.inp_col = "l", .reversed = true}}, 25);
 
-    return std::move(reader) >= non_empty >= trs >= group_by >= having >= keep >= sort;
+    auto drop = MakeDropOperator({"keep"});
+
+    return std::move(reader) >= non_empty >= trs >= group_by >= having >= keep >= drop >= sort;
 }
 
 std::unique_ptr<BatchStream> Q28(const std::string& file) {
@@ -431,6 +435,8 @@ std::unique_ptr<BatchStream> Q30(const std::string& file) {
     return std::move(reader) >= phrase >= group_by >= sort;
 }
 
+// SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits WHERE SearchPhrase <> ''
+// GROUP BY WatchID, ClientIP ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q31(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"WatchID", "ClientIP", "IsRefresh", "ResolutionWidth", "SearchPhrase"}));
@@ -449,6 +455,8 @@ std::unique_ptr<BatchStream> Q31(const std::string& file) {
     return std::move(reader) >= phrase >= group_by >= sort;
 }
 
+// SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits GROUP BY WatchID, ClientIP
+// ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q32(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"WatchID", "ClientIP", "IsRefresh", "ResolutionWidth"}));

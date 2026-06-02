@@ -436,7 +436,7 @@ private:
     using HashMap = std::unordered_map<typename ReprType<id>::T, size_t, MyHasher>;
 
     template <AggType tp, TypeId id>
-    using AggrVec = std::vector<AggregatorImpl<tp, id>>;
+    using AggrVec = std::deque<AggregatorImpl<tp, id>>;
 
     struct Shenanigans {
 
