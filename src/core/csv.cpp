@@ -69,7 +69,7 @@ std::unique_ptr<Batch> CsvReader::Next() {
     csv::CSVRow row;
     std::vector<csv::CSVRow> rows;
 
-    const size_t n_funcs = std::thread::hardware_concurrency();
+    const size_t n_funcs = std::min<size_t>(n_cols, std::max<int>(1, std::thread::hardware_concurrency()));
 
     std::vector<std::function<void()>> funcs(n_funcs);
     std::vector<std::future<void>> futures(n_funcs);
