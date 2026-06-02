@@ -25,3 +25,7 @@ compile_commands.json
 .vscode/*
 
 _tmp/*
+
+tmp/*
+
+run_all_queris.sh

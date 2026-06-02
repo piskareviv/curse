@@ -155,8 +155,7 @@ public:
                     for (size_t i = 0; i < n_rows; i++) {
                         filt[i] = col.values[i] != 0;
                     }
-                }
-                if constexpr (id == TypeId::String) {
+                } else if constexpr (id == TypeId::String) {
                     for (size_t i = 0; i < n_rows; i++) {
                         filt[i] = col.values[i].size() != 0;
                     }
@@ -314,12 +313,35 @@ public:
         }
 
         for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
+            size_t n_rows = batch->NRows();
             std::vector<Column> cols = batch->ExtractColumns();
-            for (size_t i = 0; i < n_cols; i++) {
-                std::visit([&]<TypeId id>(ColumnT<id>& col) { col.Append(std::get<ColumnT<id>>(cols[i].Values())); },
-                           vec[i].Values());
-            }
 
+            // hadle big batches
+            if (m_limit.has_value()) {
+                size_t stride = std::max<size_t>(4096, m_limit.value());  // !!!! MAGIC CONSTANT
+                for (size_t i = 0; i < n_rows;) {
+                    size_t dlt = std::min(stride, n_rows - i);
+
+                    for (size_t j = 0; j < n_cols; j++) {
+                        std::visit(
+                            [&]<TypeId id>(ColumnT<id>& col) {
+                                auto& cl = std::get<ColumnT<id>>(cols[j].Values());
+                                col.Append(std::span(cl.values).subspan(i, dlt));
+                            },
+                            vec[j].Values());
+                    }
+
+                    SortColumns(vec);
+
+                    i += dlt;
+                }
+            } else {
+                for (size_t i = 0; i < n_cols; i++) {
+                    std::visit(
+                        [&]<TypeId id>(ColumnT<id>& col) { col.Append(std::get<ColumnT<id>>(cols[i].Values())); },
+                        vec[i].Values());
+                }
+            }
             if (!vec.empty() && m_limit.has_value() && vec[0].Size() > m_limit.value() * 2) {
                 SortColumns(vec);
             }
@@ -505,8 +527,9 @@ std::unique_ptr<BatchStream> GroupByOperator::Transform(std::unique_ptr<BatchStr
 
 namespace impl {
 
-FuncOperator::FuncOperator(std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
-                           std::function<Schema(const Schema&)> transform_schema)
+FuncOperator::FuncOperator(
+    std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const std::shared_ptr<const Schema>&)> transform_batch,
+    std::function<Schema(const Schema&)> transform_schema)
     : m_transform_batch(std::move(transform_batch)), m_transform_schema(std::move(transform_schema)) {}
 
 class FuncOperatorStream : public BatchStream {
@@ -514,16 +537,19 @@ private:
     std::unique_ptr<BatchStream> m_stream;
     std::shared_ptr<const Schema> m_schema;
 
-    std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> m_transform_batch;
+    std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const std::shared_ptr<const Schema>&)>
+        m_transform_batch;
     std::function<Schema(const Schema&)> m_transform_schema;
 
     struct Secret {};
     friend class FuncOperator;
 
 public:
-    FuncOperatorStream(Secret,
-                       std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
-                       std::function<Schema(const Schema&)> transform_schema, std::unique_ptr<BatchStream> stream)
+    FuncOperatorStream(
+        Secret,
+        std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const std::shared_ptr<const Schema>&)>
+            transform_batch,
+        std::function<Schema(const Schema&)> transform_schema, std::unique_ptr<BatchStream> stream)
         : m_stream(std::move(stream)), m_transform_batch(std::move(transform_batch)) {
 
         ENSURE(m_stream != nullptr);
@@ -539,7 +565,7 @@ public:
             m_stream = nullptr;
             return nullptr;
         }
-        return m_transform_batch(std::move(batch), *m_schema);
+        return m_transform_batch(std::move(batch), m_schema);
     }
 
     std::shared_ptr<const Schema> GetSchema() override {
@@ -552,8 +578,10 @@ std::unique_ptr<BatchStream> FuncOperator::Transform(std::unique_ptr<BatchStream
                                                 std::move(stream));
 }
 
-FuncOperator MakeOperator(std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
-                          std::function<Schema(const Schema&)> transform_schema) {
+FuncOperator MakeOperator(
+    std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const std::shared_ptr<const Schema>& out_schema)>
+        transform_batch,
+    std::function<Schema(const Schema&)> transform_schema) {
     return FuncOperator(transform_batch, transform_schema);
 }
 
@@ -566,16 +594,17 @@ impl::FuncOperator MakeDropOperator(std::vector<std::string> col_to_drop) {
         return std::binary_search(vec.begin(), vec.end(), sv);
     };
 
-    auto transform_batch = [=](std::unique_ptr<Batch> batch, const Schema&) -> std::unique_ptr<Batch> {
+    auto transform_batch = [=](std::unique_ptr<Batch> batch,
+                               const std::shared_ptr<const Schema>& out_schema) -> std::unique_ptr<Batch> {
         std::shared_ptr<const Schema> schema = batch->GetSchema();
         std::vector<Column> cols = batch->ExtractColumns();
         std::vector<Column> result;
-        for (size_t i = 0; i < col_to_drop.size(); i++) {
+        for (size_t i = 0; i < cols.size(); i++) {
             if (!bs(col_to_drop, schema->Columns()[i].name)) {
                 result.emplace_back(std::move(cols[i]));
             }
         }
-        return std::make_unique<Batch>(schema, std::move(cols));
+        return std::make_unique<Batch>(out_schema, std::move(result));
     };
     auto transform_schema = [=](const Schema& schema) -> Schema {
         std::vector<Schema::ColumnInfo> cols;
@@ -594,18 +623,19 @@ impl::FuncOperator MakeSelectOperator(std::vector<std::string> cols_to_select) {
     ENSURE_MSG(std::unordered_set(cols_to_select.begin(), cols_to_select.end()).size() == cols_to_select.size(),
                "column names must be distinct");
 
-    auto transform_batch = [=](std::unique_ptr<Batch> batch, const Schema&) -> std::unique_ptr<Batch> {
+    auto transform_batch = [=](std::unique_ptr<Batch> batch,
+                               const std::shared_ptr<const Schema>& out_schema) -> std::unique_ptr<Batch> {
         std::shared_ptr<const Schema> schema = batch->GetSchema();
 
         std::vector<Column> columns = batch->ExtractColumns();
         std::vector<Column> result;
 
-        for (size_t i = 0; i < columns.size(); i++) {
+        for (size_t i = 0; i < cols_to_select.size(); i++) {
             size_t ind = schema->IndexOf(cols_to_select[i]);
             result.emplace_back(std::move(columns[ind]));
         }
 
-        return std::make_unique<Batch>(schema, std::move(columns));
+        return std::make_unique<Batch>(out_schema, std::move(result));
     };
     auto transform_schema = [=](const Schema& schema) -> Schema {
         std::vector<Schema::ColumnInfo> cols;
@@ -825,6 +855,28 @@ ColumnOperation ColumnOperation::LogicalAnd(std::string col1, std::string col2, 
     return ColumnOperation(std::move(trs), result_type, {col1, col2}, out_col);
 }
 
+ColumnOperation ColumnOperation::LogicalOr(std::string col1, std::string col2, std::string out_col) {
+    std::function<Column(std::span<const Column*>)> trs = [](std::span<const Column*> sp) -> Column {
+        ENSURE(sp.size() == 2);
+        const Column& col1 = *sp[0];
+        const Column& col2 = *sp[1];
+        const ColumnT<TypeId::Int8>& cl1 = std::get<ColumnT<TypeId::Int8>>(col1.Values());
+        const ColumnT<TypeId::Int8>& cl2 = std::get<ColumnT<TypeId::Int8>>(col2.Values());
+
+        size_t sz = col1.Size();
+        ENSURE(col2.Size() == sz);
+
+        ColumnT<TypeId::Int8> col;
+        col.values.reserve(sz);
+        for (size_t i = 0; i < sz; i++) {
+            col.Append(cl1[i] || cl2[i]);
+        }
+        return Column(std::move(col));
+    };
+    auto result_type = [](std::span<TypeId>) { return TypeId::Int8; };
+    return ColumnOperation(std::move(trs), result_type, {col1, col2}, out_col);
+}
+
 ColumnOperation ColumnOperation::Select(std::string mask_col, std::string col1, std::string col2, std::string out_col) {
     std::function<Column(std::span<const Column*>)> trs = [](std::span<const Column*> sp) -> Column {
         ENSURE(sp.size() == 3);
@@ -858,36 +910,35 @@ ColumnOperation ColumnOperation::Select(std::string mask_col, std::string col1, 
 
 impl::FuncOperator MakeColumnTransformOperator(std::vector<ColumnOperation> ops) {
 
-    auto transform_batch = [=](std::unique_ptr<Batch> batch, const Schema&) -> std::unique_ptr<Batch> {
+    auto transform_batch = [=](std::unique_ptr<Batch> batch,
+                               const std::shared_ptr<const Schema>& out_schema) -> std::unique_ptr<Batch> {
         std::shared_ptr<const Schema> schema = batch->GetSchema();
 
         std::vector<Column> columns = batch->ExtractColumns();
-        std::vector<Column> result;
 
-        for (size_t i = 0; i < columns.size(); i++) {
-            for (const ColumnOperation& op : ops) {
-                std::vector<const Column*> ptrs;
-                for (auto& name : op.m_input_cols) {
-                    ptrs.push_back(&columns[schema->IndexOf(name)]);
-                }
-                result.emplace_back(op.m_transform(ptrs));
+        std::vector<const Column*> ptrs;
+        for (const ColumnOperation& op : ops) {
+            ptrs.clear();
+            for (auto& name : op.m_input_cols) {
+                ptrs.push_back(&columns[out_schema->IndexOf(name)]);
             }
+            columns.emplace_back(op.m_transform(ptrs));
         }
 
-        columns.insert(columns.end(), result.begin(), result.end());
-
-        return std::make_unique<Batch>(schema, std::move(columns));
+        return std::make_unique<Batch>(out_schema, std::move(columns));
     };
     auto transform_schema = [=](const Schema& schema) -> Schema {
         std::vector<Schema::ColumnInfo> cols = schema.Columns();
         for (const ColumnOperation& op : ops) {
             std::vector<TypeId> ids;
             for (auto& name : op.m_input_cols) {
-                ids.push_back(schema.Columns()[schema.IndexOf(name)].type);
+                size_t ind = std::find_if(cols.begin(), cols.end(), [&](const auto& ci) { return ci.name == name; }) -
+                             cols.begin();
+                ids.push_back(cols[ind].type);
             }
             cols.push_back({.name = op.m_output_col, .type = op.m_result_type(ids)});
         }
-        return cols;
+        return Schema(std::move(cols));
     };
 
     return impl::MakeOperator(transform_batch, transform_schema);

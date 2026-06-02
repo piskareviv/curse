@@ -107,14 +107,17 @@ namespace impl {
 
 class FuncOperator : public Operator {
 private:
-    std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> m_transform_batch;
+    std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const std::shared_ptr<const Schema>&)>
+        m_transform_batch;
     std::function<Schema(const Schema&)> m_transform_schema;
 
-    FuncOperator(std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
+    FuncOperator(std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const std::shared_ptr<const Schema>&)>
+                     transform_batch,
                  std::function<Schema(const Schema&)> transform_schema);
 
     friend FuncOperator MakeOperator(
-        std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
+        std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const std::shared_ptr<const Schema>&)>
+            transform_batch,
         std::function<Schema(const Schema&)> transform_schema);
 
 public:
@@ -122,8 +125,9 @@ public:
 };
 
 // to make the constructor private
-FuncOperator MakeOperator(std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const Schema&)> transform_batch,
-                          std::function<Schema(const Schema&)> transform_schema);
+FuncOperator MakeOperator(
+    std::function<std::unique_ptr<Batch>(std::unique_ptr<Batch>, const std::shared_ptr<const Schema>&)> transform_batch,
+    std::function<Schema(const Schema&)> transform_schema);
 
 }  // namespace impl
 
@@ -183,6 +187,7 @@ public:
     ColumnOperation(Transform trs, std::string inp_col, std::string out_col);
 
     static ColumnOperation LogicalAnd(std::string col1, std::string col2, std::string out_col);
+    static ColumnOperation LogicalOr(std::string col1, std::string col2, std::string out_col);
 
     // dst[i] = col[i] ? col1[i] : col2[i]
     static ColumnOperation Select(std::string mask_col, std::string col1, std::string col2, std::string out_col);

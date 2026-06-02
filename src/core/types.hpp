@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -147,6 +148,14 @@ private:
 public:
     ValueEnum value;
 
+    // Value() {}
+
+    // template <TypeId id>
+    // Value(ValueT<id> vl) : value(std::move(vl)) {}
+
+    // template <TypeId id>
+    // Value(ReprType<id>::T vl) : Value(ValueT<id>(std::move(vl))) {}
+
     friend bool operator==(const Value& a, const Value& b) {
         return a.value == b.value;
     }
@@ -174,6 +183,12 @@ struct ColumnT<id> {
 
     void Append(T value) {
         values.push_back(std::move(value));
+    }
+
+    void Append(std::span<const T> sp) {
+        for (const auto& value : sp) {
+            Append(value);
+        }
     }
 
     void Append(const ColumnT<id>& col) {
@@ -269,16 +284,26 @@ public:
     };
 
 private:
+    struct MyHash {
+        using is_transparent = void;  // NOLINT
+
+        size_t operator()(std::string_view sv) const {
+            return std::hash<std::string_view>{}(sv);
+        }
+        size_t operator()(const std::string& s) const {
+            return std::hash<std::string>{}(s);
+        }
+    };
+
     const std::vector<ColumnInfo> m_columns;
+    std::unordered_map<std::string, size_t, MyHash, std::equal_to<>> m_map;
 
 public:
     Schema(std::vector<ColumnInfo> columns);
 
     const std::vector<ColumnInfo>& Columns() const;
     size_t IndexOf(std::string_view column_name) const;
-
-    // TypeId TypeOf(size_t) const;
-    // TypeId TypeOf(std::string_view column_name) const;
+    TypeId TypeOf(std::string_view column_name) const;
 };
 
 std::shared_ptr<const Schema> AddColumn(const Schema& schema, const Schema::ColumnInfo& info);

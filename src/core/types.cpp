@@ -37,11 +37,10 @@ const Column::ColumnEnum& Column::Values() const {
 }
 
 Schema::Schema(std::vector<ColumnInfo> columns) : m_columns(std::move(columns)) {
-    std::set<std::string> set;
-    for (auto& [name, type] : m_columns) {
-        set.insert(name);
+    for (size_t i = 0; i < m_columns.size(); i++) {
+        m_map[m_columns[i].name] = i;
     }
-    ENSURE_MSG(set.size() == m_columns.size(), "column names must be distinct");
+    ENSURE_MSG(m_map.size() == m_columns.size(), "column names must be distinct");
 }
 
 const std::vector<Schema::ColumnInfo>& Schema::Columns() const {
@@ -49,19 +48,13 @@ const std::vector<Schema::ColumnInfo>& Schema::Columns() const {
 }
 
 size_t Schema::IndexOf(std::string_view column_name) const {
-    for (size_t i = 0; i < m_columns.size(); i++) {
-        if (m_columns[i].name == column_name) {
-            return i;
-        }
-    }
-    ENSURE_MSG(false, "unknown column name");
+    auto it = m_map.find(column_name);
+    ENSURE_MSG(it != m_map.end(), "unknown column name");
+    return it->second;
 }
-// TypeId Schema::TypeOf(size_t ind) const {
-//     return m_columns[ind].type;
-// }
-// TypeId Schema::TypeOf(std::string_view column_name) const {
-//     return m_columns[IndexOf(column_name)].type;
-// }
+TypeId Schema::TypeOf(std::string_view column_name) const {
+    return m_columns[IndexOf(column_name)].type;
+}
 
 std::shared_ptr<const Schema> AddColumn(const Schema& schema, const Schema::ColumnInfo& info) {
     std::vector<Schema::ColumnInfo> columns = schema.Columns();
