@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <variant>
 #include <vector>
@@ -115,21 +116,28 @@ struct ValueT {
     }
 };
 
-template <TypeId id>
-struct ValueT_Hasher {  // NOLINT
-    std::size_t operator()(const ValueT<id>& value) const {
-        using T = typename ReprType<id>::T;
-        if constexpr (id == TypeId::Date || id == TypeId::Timestamp) {
-            if constexpr (id == TypeId::Date) {
-                auto x = std::chrono::sys_days{value.value}.time_since_epoch().count();
+struct MyHasher {
+    template <typename T>
+    std::size_t operator()(const T& value) const {
+        if constexpr (std::is_same_v<T, ReprType<TypeId::Timestamp>::T> ||
+                      std::is_same_v<T, ReprType<TypeId::Date>::T>) {
+            if constexpr (std::is_same_v<T, ReprType<TypeId::Date>::T>) {
+                auto x = std::chrono::sys_days{value}.time_since_epoch().count();
                 return std::hash<decltype(x)>()(x);
             } else {
-                auto x = value.value.time_since_epoch().count();
+                auto x = value.time_since_epoch().count();
                 return std::hash<decltype(x)>()(x);
             }
         } else {
-            return std::hash<T>()(value.value);
+            return std::hash<T>()(value);
         }
+    }
+};
+
+template <TypeId id>
+struct ValueT_Hasher {  // NOLINT
+    std::size_t operator()(const ValueT<id>& value) const {
+        return MyHasher()(value.value);
     }
 };
 

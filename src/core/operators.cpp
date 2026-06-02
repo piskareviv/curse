@@ -418,16 +418,98 @@ public:
     }
 
 private:
-    struct VecValueHasher {
-        size_t operator()(const std::vector<Value>& vec) const {
+    template <typename T, typename Hasher = std::hash<T>>
+    struct VecHasher {
+        size_t operator()(const std::vector<T>& vec) const {
             uint64_t hash = 0;
             for (size_t i = 0; i < vec.size(); i++) {
-                uint64_t h = ValueHasher()(vec[i]);
-                hash += i * i * i * 123 + h * i * 456 + h * h * 789;
+                uint64_t h = Hasher()(vec[i]);
+                hash += i * i * i * 123 + h * i * 456 + h * h * 789 + hash * 1234567;
             }
             return hash;
         }
     };
+
+    using VecValueHasher = VecHasher<Value, ValueHasher>;
+
+    template <TypeId id>
+    using HashMap = std::unordered_map<typename ReprType<id>::T, size_t, MyHasher>;
+
+    template <AggType tp, TypeId id>
+    using AggrVec = std::vector<AggregatorImpl<tp, id>>;
+
+    struct Shenanigans {
+
+        template <typename>
+        struct Aux1;
+
+        template <TypeId... ids>
+        struct Aux1<TypeIdHolder<ids...>> {
+            using T = std::variant<HashMap<ids>...>;
+        };
+
+        using HashMapEnum = Aux1<AllTypesIds>::T;
+
+        template <AggType tp, TypeId id>
+        struct AuxPair {};
+
+        template <std::pair<AggType, TypeId>... pairs>
+        struct AuxPairHolder {};
+
+        template <typename, typename>
+        struct AuxPairHolderConcat;
+
+        template <std::pair<AggType, TypeId>... pairs1, std::pair<AggType, TypeId>... pairs2>
+        struct AuxPairHolderConcat<AuxPairHolder<pairs1...>, AuxPairHolder<pairs2...>> {
+            using T = AuxPairHolder<pairs1..., pairs2...>;
+        };
+
+        template <typename... Holders>
+        struct AuxPairHolderConcatMany;
+
+        template <>
+        struct AuxPairHolderConcatMany<> {
+            using T = AuxPairHolder<>;
+        };
+
+        template <typename Head, typename... Tail>
+        struct AuxPairHolderConcatMany<Head, Tail...> {
+            using T = AuxPairHolderConcat<Head, typename AuxPairHolderConcatMany<Tail...>::T>::T;
+        };
+
+        template <typename, typename>
+        struct CartProd;
+
+        template <AggType tp, TypeId... ids>
+        struct CartProd<AggTypeHolder<tp>, TypeIdHolder<ids...>> {
+            using T = AuxPairHolder<std::pair(tp, ids)...>;
+        };
+
+        template <AggType... tps, TypeId... ids>
+        struct CartProd<AggTypeHolder<tps...>, TypeIdHolder<ids...>> {
+        private:
+            using TpIdHolder = TypeIdHolder<ids...>;
+
+            template <AggType tp>
+            using Aux = CartProd<AggTypeHolder<tp>, TpIdHolder>::T;
+
+        public:
+            using T = AuxPairHolderConcatMany<Aux<tps>...>::T;
+        };
+
+        template <typename>
+        struct Aux2;
+
+        template <std::pair<AggType, TypeId>... pairs>
+        struct Aux2<AuxPairHolder<pairs...>> {
+            using T = std::variant<AggrVec<pairs.first, pairs.second>...>;
+        };
+
+        using AggrVecEnum = Aux2<CartProd<AllAggTypes, AllTypesIds>::T>::T;
+    };
+
+    using HashMapEnum = Shenanigans::HashMapEnum;
+    using AggrVecEnum = Shenanigans::AggrVecEnum;
 
 public:
     std::unique_ptr<Batch> Next() override {
@@ -435,81 +517,138 @@ public:
             return nullptr;
         }
 
-        std::unordered_map<std::vector<Value>, std::vector<Aggregator>, VecValueHasher> map;
+        const std::shared_ptr<const Schema>& stream_schema = m_stream->GetSchema();
 
-        for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
-            const std::vector<Column>& cols = batch->Columns();
-            size_t n_rows = batch->NRows();
+        const size_t n_keys = m_key_col_inds.size();
+        const size_t n_aggs = m_aggr_col_inds.size();
 
-            for (size_t r = 0; r < n_rows; r++) {
-                auto extract_cols = [&](const std::vector<size_t> inds) {
-                    std::vector<Value> res;
-
-                    res.reserve(inds.size());
-                    for (size_t i = 0; i < inds.size(); i++) {
-                        std::visit(
-                            [&]<TypeId id>(const ColumnT<id>& col) {
-                                ValueT<id> vl{.value = col[r]};
-                                res.emplace_back(std::move(vl));
-                            },
-                            cols[inds[i]].Values());
-                    }
-                    return res;
-                };
-
-                auto proccess = [&](std::vector<Aggregator>& vec) {
-                    std::vector<Value> vals = extract_cols(m_aggr_col_inds);
-                    for (size_t i = 0; i < m_aggr_col_inds.size(); i++) {
-                        vec[i].Update(vals[i]);
-                    }
-                };
-
-                std::vector<Value> key = extract_cols(m_key_col_inds);
-
-                if (!m_limit.has_value() || map.size() < m_limit.value()) {
-                    std::vector<Aggregator>& vec = map[key];
-                    if (vec.empty()) {
-                        vec.reserve(m_params.size());
-                        for (size_t i = 0; i < m_params.size(); i++) {
-                            size_t ind = m_aggr_col_inds[i];
-                            TypeId id = batch->GetSchema()->Columns()[ind].type;
-                            vec.emplace_back(m_params[i].tp, id);
-                        }
-                    }
-                    proccess(vec);
-                } else {
-                    auto it = map.find(key);
-                    if (it != map.end()) {
-                        proccess(it->second);
-                    }
-                }
-            }
-        }
-
-        size_t n_keys = m_key_col_inds.size();
-        size_t n_aggs = m_aggr_col_inds.size();
+        std::vector<HashMapEnum> maps1;
+        std::unordered_map<std::vector<size_t>, size_t, VecHasher<size_t>> map2;
 
         std::vector<Column> result;
+
+        std::vector<AggrVecEnum> aggrs;
+        size_t aggrs_rows = 0;
 
         result.reserve(n_keys + n_aggs);
         for (size_t i = 0; i < n_keys; i++) {
             result.emplace_back(m_schema->Columns()[i].type);
         }
+
+        for (size_t ind : m_key_col_inds) {
+            ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> { maps1.push_back(HashMap<id>()); });
+        }
         for (size_t i = 0; i < n_aggs; i++) {
-            result.emplace_back(m_schema->Columns()[n_keys + i].type);
+            size_t ind = m_aggr_col_inds[i];
+            ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> {
+                ExecFor(m_params[i].tp, [&]<AggType tp> { aggrs.push_back(AggrVec<tp, id>()); });
+            });
         }
 
-        for (const auto& [key, val] : map) {
+        auto extend_aggrs = [&](size_t lower_bound) {
+            const size_t dlt = 8;
+            while (aggrs_rows < lower_bound) {
+                aggrs_rows += dlt;
+
+                for (size_t i = 0; i < n_aggs; i++) {
+                    size_t ind = m_aggr_col_inds[i];
+                    ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> {
+                        ExecFor(m_params[i].tp, [&]<AggType tp> {
+                            AggrVec<tp, id>& aggr = std::get<AggrVec<tp, id>>(aggrs[i]);
+                            for (size_t j = 0; j < dlt; j++) {
+                                aggr.push_back(AggregatorImpl<tp, id>());
+                            }
+                        });
+                    });
+                }
+            }
+        };
+
+        for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
+            const std::vector<Column>& cols = batch->Columns();
+            const size_t n_rows = batch->NRows();
+
+            std::vector<std::vector<size_t>> map2_keys(n_rows);
+            for (size_t i = 0; i < n_rows; i++) {
+                map2_keys[i].reserve(n_keys);
+            }
+
             for (size_t i = 0; i < n_keys; i++) {
-                result[i].Append(key[i]);
+                std::visit(
+                    [&]<TypeId id>(const ColumnT<id>& col) {
+                        HashMap<id>& map = std::get<HashMap<id>>(maps1[i]);
+                        for (size_t j = 0; j < n_rows; j++) {
+                            auto& val = col[j];
+                            auto [it, inserted] = map.insert({val, map.size()});
+                            // if (inserted) {
+                            //     map.values.Append(val);
+                            // }
+                            map2_keys[j].push_back(it->second);
+                        }
+                    },
+                    cols[m_key_col_inds[i]].Values());
             }
+
+            std::vector<std::optional<size_t>> aggrs_inds(n_rows);
+            std::vector<char> append_to_result(n_rows, 0);
+            for (size_t i = 0; i < n_rows; i++) {
+                if (!m_limit.has_value() || map2.size() < m_limit.value()) {
+                    auto [it, inserted] = map2.insert({std::move(map2_keys[i]), map2.size()});
+                    if (inserted) {
+                        extend_aggrs(map2.size());
+                        append_to_result[i] = 1;
+                    }
+                    aggrs_inds[i] = it->second;
+                } else {
+                    auto it = map2.find(map2_keys[i]);
+                    if (it != map2.end()) {
+                        aggrs_inds[i] = it->second;
+                    }
+                }
+            }
+
             for (size_t i = 0; i < n_aggs; i++) {
-                result[n_keys + i].Append(val[i].Get());
+                std::visit(
+                    [&]<AggType tp, TypeId id>(AggrVec<tp, id>& aggr) {
+                        const ColumnT<id>& col = std::get<ColumnT<id>>(cols[m_aggr_col_inds[i]].Values());
+                        for (size_t j = 0; j < n_rows; j++) {
+                            auto ind = aggrs_inds[j];
+                            if (ind.has_value()) {
+                                aggr[ind.value()].Update(col[j]);
+                            }
+                        }
+                    },
+                    aggrs[i]);
             }
+            for (size_t i = 0; i < n_keys; i++) {
+                std::visit(
+                    [&]<TypeId id>(const ColumnT<id>& col) {
+                        ColumnT<id>& res_col = std::get<ColumnT<id>>(result[i].Values());
+                        for (size_t j = 0; j < n_rows; j++) {
+                            if (append_to_result[j]) {
+                                res_col.Append(col[j]);
+                            }
+                        }
+                    },
+                    cols[m_key_col_inds[i]].Values());
+            }
+        }
+
+        const size_t n_result_rows = map2.size();
+
+        for (size_t i = 0; i < n_aggs; i++) {
+            std::visit(
+                [&]<AggType tp, TypeId id>(AggrVec<tp, id>& aggr) {
+                    ColumnT<AggregatorImpl<tp, id>::kResultTypeId> col;
+                    for (size_t j = 0; j < n_result_rows; j++) {
+                        col.Append(aggr[j].Get());
+                    }
+                    result.emplace_back(std::move(col));
+                },
+                aggrs[i]);
         }
 
         m_stream = nullptr;
-
         return std::make_unique<Batch>(m_schema, std::move(result));
     }
 
