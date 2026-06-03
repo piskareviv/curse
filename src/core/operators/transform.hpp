@@ -84,6 +84,9 @@ public:
 
     // dst[i] = col[i] ? col1[i] : col2[i]
     static ColumnOperation Select(std::string mask_col, std::string col1, std::string col2, std::string out_col);
+
+    static ColumnOperation SetContains(std::vector<std::string> inp_cols, std::string out_col,
+                                       std::unique_ptr<BatchStream> stream);
 };
 
 class TransformOperator : public Operator {

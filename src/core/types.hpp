@@ -41,6 +41,14 @@ struct TypeIdHolder {};
 using AllTypesIds = TypeIdHolder<TypeId::Int8, TypeId::Int16, TypeId::Int32, TypeId::Int64, TypeId::Int128,
                                  TypeId::Float64, TypeId::Char, TypeId::String, TypeId::Date, TypeId::Timestamp>;
 
+template <template <TypeId> typename, typename>
+struct MakeEnum;
+
+template <template <TypeId> typename X, TypeId... ids>
+struct MakeEnum<X, TypeIdHolder<ids...>> {
+    using T = std::variant<X<ids>...>;
+};
+
 constexpr bool IsIntegral(TypeId id) {
     return id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||
            id == TypeId::Int128;

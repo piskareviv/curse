@@ -10,6 +10,9 @@
 #include "src/core/convert.hpp"
 #include "src/core/csv.hpp"
 #include "src/core/operators.hpp"
+#include "src/core/operators/filter.hpp"
+#include "src/core/operators/select.hpp"
+#include "src/core/operators/transform.hpp"
 #include "src/core/storage.hpp"
 #include "src/core/types.hpp"
 #include "src/exec/hits_schema.hpp"
@@ -245,7 +248,6 @@ std::unique_ptr<BatchStream> Q18(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"UserID", "EventTime", "SearchPhrase"}));
 
     auto minute_op = ColumnOperation(Transform::ExtractMinute(), "EventTime", "m");
-
     auto transform = TransformOperator({minute_op});
 
     auto group_by =
@@ -328,11 +330,8 @@ std::unique_ptr<BatchStream> Q22(const std::string& file) {
         std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"Title", "URL", "SearchPhrase", "UserID"}));
 
     auto trs = TransformOperator({ColumnOperation(Transform::RegexpSearch("Google"), "Title", "title_match"),
-
                                   ColumnOperation(Transform::RegexpSearch("\\.google\\."), "URL", "url_google"),
-
                                   ColumnOperation(Transform::LogicalNot(), "url_google", "url_ok"),
-
                                   ColumnOperation::LogicalAnd("title_match", "url_ok", "keep")});
 
     FilterOperator keep("keep");
@@ -397,7 +396,6 @@ std::unique_ptr<BatchStream> Q28(const std::string& file) {
 
     auto trs = TransformOperator(
         {ColumnOperation(Transform::RegexpReplace("^https?://(?:www\\.)?([^/]+)/.*$", "$1"), "Referer", "k"),
-
          ColumnOperation(Transform::Strlen(), "Referer", "len")});
 
     GroupByOperator group_by({"k"}, {
@@ -458,21 +456,29 @@ std::unique_ptr<BatchStream> Q31(const std::string& file) {
 // SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits GROUP BY WatchID, ClientIP
 // ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q32(const std::string& file) {
-    auto reader = std::make_unique<CurseReader>(
+    auto reader1 = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"WatchID", "ClientIP"}));
+    auto reader2 = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"WatchID", "ClientIP", "IsRefresh", "ResolutionWidth"}));
 
-    GroupByOperator group_by({"WatchID", "ClientIP"},
-                             {
-                                 {.tp = AggType::Count, .inp_col = "WatchID", .out_col = "c"},
-                                 {.tp = AggType::Sum, .inp_col = "IsRefresh", .out_col = "r"},
-                                 {.tp = AggType::Average, .inp_col = "ResolutionWidth", .out_col = "w"},
-                             });
-
+    GroupByOperator group_by({"WatchID", "ClientIP"}, {{.tp = AggType::Count, .inp_col = "WatchID", .out_col = "c"}});
     SortOperator sort({{.inp_col = "c", .reversed = true}}, 10);
 
-    return std::move(reader) >= group_by >= sort;
+    std::unique_ptr<BatchStream> stream =
+        std::move(reader1) >= group_by >= sort >= SelectOperator({"WatchID", "ClientIP"});
+
+    auto trs = TransformOperator({ColumnOperation::SetContains({"WatchID", "ClientIP"}, "keep", std::move(stream))});
+
+    GroupByOperator group_by2({"WatchID", "ClientIP"},
+                              {
+                                  {.tp = AggType::Count, .inp_col = "WatchID", .out_col = "c"},
+                                  {.tp = AggType::Sum, .inp_col = "IsRefresh", .out_col = "r"},
+                                  {.tp = AggType::Average, .inp_col = "ResolutionWidth", .out_col = "w"},
+                              });
+
+    return std::move(reader2) >= trs >= FilterOperator("keep") >= group_by2 >= sort;
 }
 
+// SELECT URL, COUNT(*) AS c FROM hits GROUP BY URL ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q33(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"URL"}));
 
@@ -483,6 +489,7 @@ std::unique_ptr<BatchStream> Q33(const std::string& file) {
     return std::move(reader) >= group_by >= sort;
 }
 
+// SELECT 1, URL, COUNT(*) AS c FROM hits GROUP BY 1, URL ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q34(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"URL"}));
 
@@ -495,6 +502,8 @@ std::unique_ptr<BatchStream> Q34(const std::string& file) {
     return std::move(reader) >= trs >= group_by >= sort;
 }
 
+// SELECT URL, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <=
+// '2013-07-31' AND DontCountHits = 0 AND IsRefresh = 0 AND URL <> '' GROUP BY URL ORDER BY PageViews DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q36(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"URL", "CounterID", "EventDate", "DontCountHits", "IsRefresh"}));
@@ -620,27 +629,18 @@ std::unique_ptr<BatchStream> Q39(const std::string& file) {
     auto trs = TransformOperator(
         {ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
                          "CounterID", "c"),
-
          ColumnOperation(Transform::Compare(Transform::ComparisonType::GreaterThanOrEqual, d1), "EventDate", "ge"),
-
          ColumnOperation(Transform::Compare(Transform::ComparisonType::LessThanOrEqual, d2), "EventDate", "le"),
-
          ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
                          "IsRefresh", "r"),
-
          ColumnOperation::LogicalAnd("c", "ge", "k1"), ColumnOperation::LogicalAnd("k1", "le", "k2"),
          ColumnOperation::LogicalAnd("k2", "r", "keep"),
-
          ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
                          "SearchEngineID", "se0"),
-
          ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
                          "AdvEngineID", "ae0"),
-
          ColumnOperation::LogicalAnd("se0", "ae0", "src_cond"),
-
          ColumnOperation(Transform::Constant(Value(ValueT<TypeId::String>{""})), "Referer", "empty"),
-
          ColumnOperation::Select("src_cond", "Referer", "empty", "Src")});
 
     GroupByOperator group_by({"TraficSourceID", "SearchEngineID", "AdvEngineID", "Src", "URL"},

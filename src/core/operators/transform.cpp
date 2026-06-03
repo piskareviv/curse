@@ -6,11 +6,14 @@
 #include <regex>
 #include <type_traits>
 #include <unordered_map>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
+#include "dependencies/gtl/include/gtl/phmap.hpp"
 #include "src/core/assert.hpp"
 #include "src/core/types.hpp"
+#include "src/core/util.hpp"
 
 namespace curse {
 
@@ -324,6 +327,106 @@ ColumnOperation ColumnOperation::Select(std::string mask_col, std::string col1, 
         return sp[1];
     };
     return ColumnOperation(std::move(trs), result_type, {mask_col, col1, col2}, out_col);
+}
+
+template <TypeId id>
+using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher>;
+
+using HashMapEnum = MakeEnum<HashMap, AllTypesIds>::T;
+
+ColumnOperation ColumnOperation::SetContains(std::vector<std::string> inp_cols, std::string out_col,
+                                             std::unique_ptr<BatchStream> stream) {
+    ENSURE(inp_cols.size() > 0);
+    ENSURE(inp_cols.size() == stream->GetSchema()->Columns().size());
+
+    struct Data {
+        std::vector<HashMapEnum> maps;
+        std::unordered_set<std::vector<size_t>, VecHasher<size_t>> set;
+    };
+
+    std::shared_ptr<Data> data_ptr = std::make_shared<Data>();
+    {
+        Data& data = *data_ptr;
+
+        std::shared_ptr<const Schema> schema = stream->GetSchema();
+        const size_t n_cols = schema->Columns().size();
+
+        data.maps.reserve(n_cols);
+        for (auto& cl : schema->Columns()) {
+            ExecFor(cl.type, [&]<TypeId id> { data.maps.push_back(HashMap<id>()); });
+        }
+
+        for (std::unique_ptr<Batch> batch; (batch = stream->Next());) {
+            const size_t n_rows = batch->NRows();
+            std::vector<Column> cols = batch->ExtractColumns();
+
+            std::vector<std::vector<size_t>> map2_keys(n_rows);
+            for (size_t i = 0; i < n_rows; i++) {
+                map2_keys[i].resize(n_cols);
+            }
+
+            for (size_t i = 0; i < n_cols; i++) {
+                std::visit(
+                    [&]<TypeId id>(const ColumnT<id>& col) {
+                        HashMap<id>& map = std::get<HashMap<id>>(data.maps[i]);
+                        for (size_t j = 0; j < n_rows; j++) {
+                            auto& val = col[j];
+                            auto [it, inserted] = map.insert({val, map.size()});
+                            map2_keys[j][i] = it->second;
+                        }
+                    },
+                    cols[i].Values());
+            }
+
+            for (size_t i = 0; i < n_rows; i++) {
+                data.set.insert(std::move(map2_keys[i]));
+            }
+        }
+    }
+
+    auto trs = [data_ptr, sz = inp_cols.size()](std::span<std::reference_wrapper<const Column>> cols) -> Column {
+        ENSURE(sz == cols.size());
+
+        const Data& data = *data_ptr;
+
+        const size_t n_cols = cols.size();
+        const size_t n_rows = cols[0].get().Size();
+
+        std::vector<char> not_found(n_rows);
+        std::vector<std::vector<size_t>> map2_keys(n_rows);
+        for (size_t i = 0; i < n_rows; i++) {
+            map2_keys[i].resize(n_cols);
+        }
+
+        for (size_t i = 0; i < n_cols; i++) {
+            std::visit(
+                [&]<TypeId id>(const ColumnT<id>& col) {
+                    const HashMap<id>& map = std::get<HashMap<id>>(data.maps[i]);
+                    for (size_t j = 0; j < n_rows; j++) {
+                        auto it = map.find(col[j]);
+                        if (it != map.end()) {
+                            map2_keys[j][i] = it->second;
+                        } else {
+                            not_found[j] = true;
+                        }
+                    }
+                },
+                cols[i].get().Values());
+        }
+
+        ColumnT<TypeId::Int8> result;
+        for (size_t i = 0; i < n_rows; i++) {
+            bool found = !not_found[i] && data.set.contains(map2_keys[i]);
+            result.Append(found);
+        }
+        return result;
+    };
+    auto result_type = [sz = inp_cols.size()](std::span<TypeId> sp) {
+        ENSURE(sp.size() == sz);
+        return TypeId::Int8;
+    };
+
+    return ColumnOperation(trs, result_type, inp_cols, out_col);
 }
 
 TransformOperator::TransformOperator(std::vector<ColumnOperation> ops) : m_ops(std::move(ops)) {}

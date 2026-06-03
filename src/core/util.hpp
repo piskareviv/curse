@@ -92,4 +92,16 @@ void StaticFor(auto&& f) {
     StaticForEach(std::make_index_sequence<N>(), std::forward<decltype(f)>(f));
 }
 
+template <typename T, typename Hasher = std::hash<T>>
+struct VecHasher {
+    size_t operator()(std::span<const T> vec) const {
+        uint64_t hash = 0;
+        for (size_t i = 0; i < vec.size(); i++) {
+            uint64_t h = Hasher()(vec[i]);
+            hash += i * i * i * 123 + h * i * 456 + h * h * 789 + hash * 1234567;
+        }
+        return hash;
+    }
+};
+
 }  // namespace curse

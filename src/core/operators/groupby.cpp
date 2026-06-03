@@ -64,20 +64,6 @@ public:
     }
 
 private:
-    template <typename T, typename Hasher = std::hash<T>>
-    struct VecHasher {
-        size_t operator()(std::span<const T> vec) const {
-            uint64_t hash = 0;
-            for (size_t i = 0; i < vec.size(); i++) {
-                uint64_t h = Hasher()(vec[i]);
-                hash += i * i * i * 123 + h * i * 456 + h * h * 789 + hash * 1234567;
-            }
-            return hash;
-        }
-    };
-
-    using VecValueHasher = VecHasher<Value, ValueHasher>;
-
     template <TypeId id>
     using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher>;
 
@@ -173,12 +159,12 @@ public:
         auto next = [&]<size_t NKeys> -> void {
             const std::shared_ptr<const Schema>& stream_schema = m_stream->GetSchema();
 
-            std::vector<HashMapEnum> maps1;
-            using IdBundleT =
-                std::conditional_t<NKeys == kNKeysVector + 1, std::array<size_t, NKeys>, std::vector<size_t>>;
-            gtl::parallel_flat_hash_map<IdBundleT, size_t, VecHasher<size_t>> map2;
+            using IdBundleT = std::conditional_t<NKeys <= kNKeysVector, std::array<size_t, NKeys>, std::vector<size_t>>;
 
+            std::vector<HashMapEnum> maps1;
+            gtl::parallel_flat_hash_map<IdBundleT, size_t, VecHasher<size_t>> map2;
             std::vector<AggrVecEnum> aggrs;
+
             size_t aggrs_rows = 0;
 
             result.reserve(n_keys + n_aggs);
