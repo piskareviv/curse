@@ -335,7 +335,7 @@ using HashMapEnum = MakeEnum<HashMap, AllTypesIds>::T;
 
 ColumnOperation ColumnOperation::SetContains(std::vector<std::string> inp_cols, std::string out_col,
                                              std::unique_ptr<BatchStream> stream) {
-    ENSURE(inp_cols.size() > 0);
+    ENSURE(!inp_cols.empty());
     ENSURE(inp_cols.size() == stream->GetSchema()->Columns().size());
 
     struct Data {
