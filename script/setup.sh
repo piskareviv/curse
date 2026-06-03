@@ -22,6 +22,7 @@ apt install -y clang-20
 
 
 clang-20 --version
+clang++-20 --version
 
 # echo 'CC="clang-20"'    | sudo tee -a /etc/environment
 # echo 'CXX="clang++-20"' | sudo tee -a /etc/environment
