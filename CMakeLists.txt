@@ -6,12 +6,20 @@ set(CMAKE_CXX_COMPILER "clang++-20")
 project(curse)
 
 
+
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(RE2 REQUIRED IMPORTED_TARGET re2)
+
+# find_package(re2 REQUIRED)
+
 
 include(cmake/compile.cmake)
+
 
 
 add_subdirectory(dependencies/gtest)

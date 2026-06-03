@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "dependencies/gtl/include/gtl/phmap.hpp"
+#include "re2/re2.h"
 #include "src/core/assert.hpp"
 #include "src/core/types.hpp"
 #include "src/core/util.hpp"
@@ -116,15 +117,15 @@ Transform Transform::Compare(ComparisonType how, Value value) {
 }
 
 Transform Transform::RegexpSearch(std::string pattern) {
-    const std::regex re(pattern, std::regex::optimize);
+    std::shared_ptr<const re2::RE2> re = std::make_shared<re2::RE2>(pattern);
 
     return Transform(
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::Int8> res;
-            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
-                bool found = std::regex_search(cl[i], re);
+                // bool found = std::regex_search(cl[i], re);
+                bool found = re2::RE2::PartialMatch(cl[i], *re);
                 res.Append(found);
             }
             return Column(std::move(res));
@@ -133,15 +134,16 @@ Transform Transform::RegexpSearch(std::string pattern) {
 }
 
 Transform Transform::RegexpReplace(std::string pattern, std::string format) {
-    const std::regex re(pattern, std::regex::optimize);
+    std::shared_ptr<const re2::RE2> re = std::make_shared<re2::RE2>(pattern);
 
     return Transform(
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::String> res;
-            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
-                std::string s = std::regex_replace(cl[i], re, format);
+                // std::string s = std::regex_replace(cl[i], re, format);
+                std::string s;
+                re2::RE2::GlobalReplace(&s, *re, format);
                 res.Append(s);
             }
             return Column(std::move(res));

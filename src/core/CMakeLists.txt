@@ -46,6 +46,7 @@ add_library(curse_core
   
 target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(curse_core PRIVATE lz4)  
+target_link_libraries(curse_core PRIVATE PkgConfig::RE2)
   
 add_executable(curse_core_test
   test/test_types.cpp

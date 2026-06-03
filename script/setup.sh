@@ -3,7 +3,11 @@
 sudo apt-get update
 sudo apt-get install -y cmake build-essential
 sudo apt-get install -y clang-tidy clang-format
-        
+sudo apt install libabsl-dev libgtest-dev libbenchmark-dev
+sudo apt install libre2-dev
+sudo apt install pkg-config
+
+
 wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
 chmod +x /tmp/llvm.sh
 sudo /tmp/llvm.sh 20 all
