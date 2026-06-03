@@ -207,6 +207,10 @@ struct ColumnT<id> {
         }
     }
 
+    void Clear() {
+        values.clear();
+    }
+
     std::vector<T> ToVector() const {
         return std::vector<T>(values.begin(), values.end());
     }
@@ -293,6 +297,8 @@ public:
 
     ColumnEnum& Values();
     const ColumnEnum& Values() const;
+
+    void Clear();
 };
 
 class Schema {

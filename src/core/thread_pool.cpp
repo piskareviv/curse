@@ -14,7 +14,7 @@ struct ThreadPool::Impl {
 
 ThreadPool::ThreadPool(size_t n_threads) {
     if (n_threads == 0) {
-        n_threads = std::thread::hardware_concurrency();
+        n_threads = std::max<int>(1, std::thread::hardware_concurrency());
     }
     m_impl = std::make_unique<Impl>(static_cast<int>(n_threads));
 }

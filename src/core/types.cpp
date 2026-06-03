@@ -36,6 +36,10 @@ const Column::ColumnEnum& Column::Values() const {
     return m_column;
 }
 
+void Column::Clear() {
+    std::visit([&]<TypeId id>(ColumnT<id>& cl) { cl.Clear(); }, m_column);
+}
+
 Schema::Schema(std::vector<ColumnInfo> columns) : m_columns(std::move(columns)) {
     for (size_t i = 0; i < m_columns.size(); i++) {
         m_map[m_columns[i].name] = i;

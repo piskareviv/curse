@@ -2,8 +2,10 @@
 
 #include <array>
 #include <cstddef>
+#include <future>
 #include <limits>
 #include <memory>
+#include <spanstream>
 #include <vector>
 
 #include "src/core/assert.hpp"
@@ -11,6 +13,7 @@
 #include "src/core/convert.hpp"
 #include "src/core/file_io.hpp"
 #include "src/core/lz4.hpp"
+#include "src/core/thread_pool.hpp"
 #include "src/core/types.hpp"
 #include "src/core/util.hpp"
 
@@ -155,16 +158,21 @@ void WriteSchema(FileWriter &writer, const Schema &schema) {
     writer.Write(Concat(bytes0, bytes1, bytes2, bytes3, bytes4));
 }
 
-void WriteBatch(FileWriter &writer, const Batch &batch) {
-    const Schema &schema = *batch.GetSchema();
-
-    size_t n_cols = schema.Columns().size();
+void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch) {
+    std::vector<Column> cols = batch->ExtractColumns();
+    size_t n_cols = cols.size();
 
     std::vector<std::vector<char>> vec(n_cols);
-    std::vector<char> buf;
+    std::vector<std::future<void>> futures(n_cols);
+
     for (size_t i = 0; i < n_cols; i++) {
-        CompressLZ4(Convert<Column>::ToBytes(batch.Columns()[i]), buf);
-        vec[i].assign(buf.begin(), buf.end());
+        futures[i] = thread_pool.Push([&, i] {
+            CompressLZ4(Convert<Column>::ToBytes(cols[i]), vec[i]);
+            cols[i].Clear();
+        });
+    }
+    for (size_t i = 0; i < n_cols; i++) {
+        futures[i].wait();
     }
 
     std::vector<int> offsets(n_cols);
@@ -188,7 +196,7 @@ void WriteAsCurse(const std::string &file, std::unique_ptr<BatchStream> stream) 
 
     WriteSchema(writer, *stream->GetSchema());
     for (std::unique_ptr<Batch> batch = stream->Next(); batch; batch = stream->Next()) {
-        WriteBatch(writer, *batch);
+        WriteBatch(writer, std::move(batch));
     }
 
     writer.Write(kFormatMarker);
