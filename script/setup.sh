@@ -11,13 +11,15 @@ apt install -y libre2-dev
 apt install -y pkg-config
 apt install -y wget
 apt install -y lsb-release
+apt install -y libc++-dev libc++abi-dev
 apt install -y libc++-20-dev libc++abi-20-dev
+apt install -y libc++-23-dev libc++abi-23-dev
+apt install -y clang-20
 
 # wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
 # chmod +x /tmp/llvm.sh
 # /tmp/llvm.sh 20 all
 
-apt install -y clang-20
 
 clang-20 --version
 
