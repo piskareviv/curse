@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 
-set(CMAKE_C_COMPILER "clang-20")
-set(CMAKE_CXX_COMPILER "clang++-20")
+set(CMAKE_C_COMPILER "/usr/bin/clang-20")
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++-20")
 
 project(curse)
 
