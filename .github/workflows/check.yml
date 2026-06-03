@@ -19,7 +19,7 @@ jobs:
 
     - name: fetch dependencies
       run: |
-        bash script/setup.sh
+        sudo bash script/setup.sh
     
     - name: build and test
       run: |
