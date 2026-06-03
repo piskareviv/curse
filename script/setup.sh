@@ -10,6 +10,10 @@ apt install -y libabsl-dev libgtest-dev libbenchmark-dev
 apt install -y libre2-dev
 apt install -y pkg-config
 
+apt install -y zstd 
+apt install -y pv
+apt install -y wget
+
 
 wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
 chmod +x /tmp/llvm.sh
