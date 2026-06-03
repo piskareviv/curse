@@ -13,9 +13,11 @@ apt install -y wget
 apt install -y lsb-release
 
 
-wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
-chmod +x /tmp/llvm.sh
-/tmp/llvm.sh 20 all
+# wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+# chmod +x /tmp/llvm.sh
+# /tmp/llvm.sh 20 all
+
+apt install -y clang++-20
 
 clang-20 --version
 
