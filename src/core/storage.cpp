@@ -5,7 +5,6 @@
 #include <future>
 #include <limits>
 #include <memory>
-#include <spanstream>
 #include <vector>
 
 #include "src/core/assert.hpp"

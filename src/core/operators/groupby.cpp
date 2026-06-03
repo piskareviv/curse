@@ -1,6 +1,5 @@
 #include "groupby.hpp"
 
-#include <cstdint>
 #include <deque>
 #include <optional>
 #include <type_traits>

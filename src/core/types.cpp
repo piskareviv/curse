@@ -1,7 +1,6 @@
 #include "src/core/types.hpp"
 
 #include <memory>
-#include <set>
 #include <utility>
 #include <variant>
 #include <vector>

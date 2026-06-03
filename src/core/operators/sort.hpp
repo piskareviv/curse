@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "src/core/aggregators.hpp"
 #include "src/core/types.hpp"
 
 namespace curse {
