@@ -17,7 +17,7 @@ apt install -y lsb-release
 # chmod +x /tmp/llvm.sh
 # /tmp/llvm.sh 20 all
 
-apt install -y clang++-20
+apt install -y clang-20
 
 clang-20 --version
 
