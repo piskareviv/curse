@@ -6,6 +6,7 @@
 #include <unordered_set>
 #include <variant>
 
+#include "dependencies/gtl/include/gtl/phmap.hpp"
 #include "src/core/assert.hpp"
 #include "src/core/types.hpp"
 
@@ -206,7 +207,7 @@ struct AggregatorImpl<AggType::CountDistinct, id> {
     static constexpr TypeId kResultTypeId = TypeId::Int64;
     using ResultT = ReprType<kResultTypeId>::T;
 
-    std::unordered_set<ValueT<id>, ValueT_Hasher<id>> set;
+    gtl::flat_hash_set<ValueT<id>, ValueT_Hasher<id>> set;
 
     AggregatorImpl() {}
 

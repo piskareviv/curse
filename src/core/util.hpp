@@ -3,6 +3,8 @@
 #include <cassert>
 #include <cstring>
 #include <span>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "src/core/assert.hpp"
@@ -80,5 +82,14 @@ private:
 public:
     using T = Aux<HolderTSpec>::T;
 };
+
+template <size_t... seq>
+void StaticForEach(std::index_sequence<seq...>, auto&& f) {
+    (f(std::integral_constant<size_t, seq>()), ...);
+}
+template <size_t N>
+void StaticFor(auto&& f) {
+    StaticForEach(std::make_index_sequence<N>(), std::forward<decltype(f)>(f));
+}
 
 }  // namespace curse
