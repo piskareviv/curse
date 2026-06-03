@@ -1,3 +1,6 @@
+#!/usr/bin/bash
+
+
 build_folder=$1
 
 for test in `ls $build_folder/bin/*_test`; do

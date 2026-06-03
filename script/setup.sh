@@ -1,16 +1,19 @@
+#!/usr/bin/bash
+
+
 # !!! do not run this on your personal computer !!!
 
-sudo apt-get update
-sudo apt-get install -y cmake build-essential
-sudo apt-get install -y clang-tidy clang-format
-sudo apt install libabsl-dev libgtest-dev libbenchmark-dev
-sudo apt install libre2-dev
-sudo apt install pkg-config
+apt-get update
+apt-get install -y cmake build-essential
+apt-get install -y clang-tidy clang-format
+apt install libabsl-dev libgtest-dev libbenchmark-dev
+apt install libre2-dev
+apt install pkg-config
 
 
 wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
 chmod +x /tmp/llvm.sh
-sudo /tmp/llvm.sh 20 all
+/tmp/llvm.sh 20 all
 
 clang-20 --version
 

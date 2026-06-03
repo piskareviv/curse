@@ -1,3 +1,6 @@
+#!/usr/bin/bash
+
+
 FILES=$(find src/ -name "*.cpp" -o -name "*.hpp")
 
 clang-format --dry-run --Werror $FILES || exit 1
