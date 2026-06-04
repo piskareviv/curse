@@ -15,6 +15,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(RE2 REQUIRED IMPORTED_TARGET re2)
 
+find_package(absl REQUIRED)
+
 # find_package(re2 REQUIRED)
 
 
