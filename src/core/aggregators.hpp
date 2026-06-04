@@ -102,8 +102,8 @@ struct AggregatorImpl<AggType::Sum, id> {
     }
 
     void Update(const ColumnT<id>& col) {
-        for (const T& value : col.values) {
-            Update(value);
+        for (size_t i = 0; i < col.Size(); i++) {
+            Update(col[i]);
         }
     }
 
@@ -129,8 +129,8 @@ struct AggregatorImpl<AggType::Sum, id> {
     }
 
     void Update(const ColumnT<id>& col) {
-        for (const T& value : col.values) {
-            Update(value);
+        for (size_t i = 0; i < col.Size(); i++) {
+            Update(col[i]);
         }
     }
 
@@ -159,8 +159,8 @@ struct AggregatorImpl<AggType::Average, id> {
     }
 
     void Update(const ColumnT<id>& col) {
-        for (const T& value : col.values) {
-            Update(value);
+        for (size_t i = 0; i < col.Size(); i++) {
+            Update(col[i]);
         }
     }
 
@@ -189,8 +189,8 @@ struct AggregatorImpl<tp, id> {
     }
 
     void Update(const ColumnT<id>& col) {
-        for (const T& value : col.values) {
-            Update(value);
+        for (size_t i = 0; i < col.Size(); i++) {
+            Update(col[i]);
         }
     }
 
@@ -216,8 +216,8 @@ struct AggregatorImpl<AggType::CountDistinct, id> {
     }
 
     void Update(const ColumnT<id>& col) {
-        for (const T& value : col.values) {
-            Update(value);
+        for (size_t i = 0; i < col.Size(); i++) {
+            Update(col[i]);
         }
     }
 

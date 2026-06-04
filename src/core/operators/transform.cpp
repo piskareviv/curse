@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
-#include <regex>
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
@@ -29,7 +28,9 @@ Transform Transform::Constant(Value value) {
                     const auto& vl = val.value;
 
                     ColumnT<id> res;
-                    res.values.assign(sz, vl);
+                    for (size_t i = 0; i < sz; i++) {
+                        res.Append(vl);
+                    }
                     return Column(std::move(res));
                 },
                 value.value);
@@ -76,36 +77,35 @@ Transform Transform::Compare(ComparisonType how, Value value) {
                     const ColumnT<id>& cl = std::get<ColumnT<id>>(col.Values());
                     size_t sz = cl.Size();
 
-                    res.values.resize(sz);
                     switch (how) {
                         case ComparisonType::Equal:
                             for (size_t i = 0; i < sz; i++) {
-                                res[i] = cl[i] == vl;
+                                res.Append(cl[i] == vl);
                             }
                             break;
                         case ComparisonType::NotEqual:
                             for (size_t i = 0; i < sz; i++) {
-                                res[i] = cl[i] != vl;
+                                res.Append(cl[i] != vl);
                             }
                             break;
                         case ComparisonType::GreaterThan:
                             for (size_t i = 0; i < sz; i++) {
-                                res[i] = cl[i] > vl;
+                                res.Append(cl[i] > vl);
                             }
                             break;
                         case ComparisonType::GreaterThanOrEqual:
                             for (size_t i = 0; i < sz; i++) {
-                                res[i] = cl[i] >= vl;
+                                res.Append(cl[i] >= vl);
                             }
                             break;
                         case ComparisonType::LessThan:
                             for (size_t i = 0; i < sz; i++) {
-                                res[i] = cl[i] < vl;
+                                res.Append(cl[i] < vl);
                             }
                             break;
                         case ComparisonType::LessThanOrEqual:
                             for (size_t i = 0; i < sz; i++) {
-                                res[i] = cl[i] <= vl;
+                                res.Append(cl[i] <= vl);
                             }
                             break;
                     }
@@ -158,7 +158,7 @@ Transform Transform::ExtractMinute() {
             ColumnT<TypeId::Int64> res;
             // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
-                std::chrono::system_clock::time_point ts = cl.values[i];
+                std::chrono::system_clock::time_point ts = cl[i];
                 auto minutes = std::chrono::duration_cast<std::chrono::minutes>(ts.time_since_epoch()).count();
                 res.Append(minutes % 60);
             }
@@ -172,9 +172,8 @@ Transform Transform::TruncateToMinutes() {
         [=](const Column& col) {
             const ColumnT<TypeId::Timestamp>& cl = std::get<ColumnT<TypeId::Timestamp>>(col.Values());
             ColumnT<TypeId::Timestamp> res;
-            // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
-                std::chrono::system_clock::time_point ts = cl.values[i];
+                std::chrono::system_clock::time_point ts = cl[i];
                 std::chrono::system_clock::time_point tr = std::chrono::floor<std::chrono::minutes>(ts);
                 res.Append(tr);
             }

@@ -13,15 +13,14 @@ Column::Column(TypeId id) {
     ExecFor(id, [&]<TypeId id> { m_column = ColumnT<id>(); });
 }
 Column::Column(Value val) {
-    std::visit([&]<TypeId id>(ValueT<id> vl) { m_column = ColumnT<id>{.values = {std::move(vl.value)}}; },
-               std::move(val.value));
+    std::visit([&]<TypeId id>(ValueT<id> vl) { m_column = ColumnT<id>{vl}; }, std::move(val.value));
 }
 
 TypeId Column::Type() const {
     return std::visit([&]<TypeId id>(const ColumnT<id>&) { return id; }, m_column);
 }
 size_t Column::Size() const {
-    return std::visit([&](const auto& col) { return col.values.size(); }, m_column);
+    return std::visit([&](const auto& col) { return col.Size(); }, m_column);
 }
 
 void Column::Append(Value value) {

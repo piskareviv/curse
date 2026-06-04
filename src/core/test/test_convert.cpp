@@ -14,20 +14,20 @@ bool CheckConvert(Column col) {
 }
 
 TEST(Convert, AllTypes) {
-    CheckConvert(ColumnT<TypeId::Int8>{.values = {-1, 0, 1, 2, 10, -100}});
-    CheckConvert(ColumnT<TypeId::Int16>{.values = {-1, 0, 1, 2, 10, -100}});
-    CheckConvert(ColumnT<TypeId::Int32>{.values = {-1, 0, 1, 2, 10, -100}});
-    CheckConvert(ColumnT<TypeId::Int64>{.values = {-1, 0, 1, 2, 10, -100}});
-    CheckConvert(ColumnT<TypeId::Int128>{.values = {-1, 0, 1, 2, 10, -100}});
+    CheckConvert(ColumnT<TypeId::Int8>::FromVector({-1, 0, 1, 2, 10, -100}));
+    CheckConvert(ColumnT<TypeId::Int16>::FromVector({-1, 0, 1, 2, 10, -100}));
+    CheckConvert(ColumnT<TypeId::Int32>::FromVector({-1, 0, 1, 2, 10, -100}));
+    CheckConvert(ColumnT<TypeId::Int64>::FromVector({-1, 0, 1, 2, 10, -100}));
+    CheckConvert(ColumnT<TypeId::Int128>::FromVector({-1, 0, 1, 2, 10, -100}));
 
-    CheckConvert(ColumnT<TypeId::Float64>{.values = {-1, 0, 1, 2, 10, -100, 0.1}});
+    CheckConvert(ColumnT<TypeId::Float64>::FromVector({-1, 0, 1, 2, 10, -100, 0.1}));
 
-    CheckConvert(ColumnT<TypeId::Char>{.values = {'a', 'b', '0', 'a', '\0', '\n'}});
-    CheckConvert(ColumnT<TypeId::String>{.values = {"abacabadabacaba", "new\nline", "a\tb"}});
+    CheckConvert(ColumnT<TypeId::Char>::FromVector({'a', 'b', '0', 'a', '\0', '\n'}));
+    CheckConvert(ColumnT<TypeId::String>::FromVector({"abacabadabacaba", "new\nline", "a\tb"}));
 
-    CheckConvert(ColumnT<TypeId::Date>{.values = {year_month_day(2020y, February, 24d)}});
-    CheckConvert(ColumnT<TypeId::Timestamp>{
-        .values = {sys_days{year_month_day(2020y, February, 24d)} + 20h + 5min + 10s + 1ns}});
+    CheckConvert(ColumnT<TypeId::Date>::FromVector({year_month_day(2020y, February, 24d)}));
+    CheckConvert(ColumnT<TypeId::Timestamp>::FromVector(
+        {sys_days{year_month_day(2020y, February, 24d)} + 20h + 5min + 10s + 1ns}));
 }
 
 TEST(Convert, Empty) {
@@ -62,9 +62,9 @@ TEST(Convert, StringEdgeCases) {
     }
 
     for (auto a : all) {
-        CheckConvert(ColumnT<TypeId::String>{.values = {a}});
+        CheckConvert(ColumnT<TypeId::String>::FromVector({a}));
         for (auto b : all) {
-            CheckConvert(ColumnT<TypeId::String>{.values = {a, b}});
+            CheckConvert(ColumnT<TypeId::String>::FromVector({a, b}));
             if (std::max({a.size(), b.size()}) > 3) {
                 break;
             }
@@ -91,11 +91,11 @@ TEST(Convert, StringEdgeCases2) {
     }
 
     for (auto a : all) {
-        CheckConvert(ColumnT<TypeId::String>{.values = {a}});
+        CheckConvert(ColumnT<TypeId::String>::FromVector({a}));
         for (auto b : all) {
-            CheckConvert(ColumnT<TypeId::String>{.values = {a, b}});
+            CheckConvert(ColumnT<TypeId::String>::FromVector({a, b}));
             for (auto c : all) {
-                CheckConvert(ColumnT<TypeId::String>{.values = {a, b, c}});
+                CheckConvert(ColumnT<TypeId::String>::FromVector({a, b, c}));
             }
         }
     }

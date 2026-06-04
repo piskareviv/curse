@@ -47,11 +47,11 @@ public:
             [&]<TypeId id>(const ColumnT<id>& col) {
                 if constexpr (IsIntegral(id)) {
                     for (size_t i = 0; i < n_rows; i++) {
-                        filt[i] = col.values[i] != 0;
+                        filt[i] = col[i] != 0;
                     }
                 } else if constexpr (id == TypeId::String) {
                     for (size_t i = 0; i < n_rows; i++) {
-                        filt[i] = col.values[i].size() != 0;
+                        filt[i] = col[i].size() != 0;
                     }
                 } else {
                     ENSURE("something went wrong");

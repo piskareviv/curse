@@ -197,7 +197,12 @@ struct ColumnT<id> {
     using T = ReprType<id>::T;
     static constexpr TypeId kId = id;
 
-    std::deque<T> values;
+private:
+    std::deque<T> values;  // NOLINT
+
+public:
+    ColumnT() {}
+    ColumnT(ValueT<id> val) : values{val.value} {}
 
     void Append(T value) {
         values.push_back(std::move(value));

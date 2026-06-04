@@ -140,12 +140,11 @@ void WriteSchema(FileWriter &writer, const Schema &schema) {
     std::vector<int> types;
 
     types.resize(n_cols);
-    names.values.resize(n_cols);
 
     for (size_t i = 0; i < n_cols; i++) {
-        names.values[i] = schema.Columns()[i].name;
+        names.Append(schema.Columns()[i].name);
         types[i] = static_cast<int>(schema.Columns()[i].type);
-        ENSURE_MSG(!names.values[i].starts_with(kAuxPrefix), "invalid column name");
+        ENSURE_MSG(!names[i].starts_with(kAuxPrefix), "invalid column name");
     }
 
     std::vector<char> bytes1 = SizeToFourBytes(n_cols);
