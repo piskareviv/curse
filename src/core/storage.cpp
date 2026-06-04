@@ -45,7 +45,7 @@ std::shared_ptr<const Schema> ReadSchema(FileReader &reader, size_t &ptr) {
 
     std::vector<Schema::ColumnInfo> columns(n_cols);
     for (size_t i = 0; i < n_cols; i++) {
-        columns[i] = Schema::ColumnInfo{.name = col[i], .type = static_cast<TypeId>(types[i])};
+        columns[i] = Schema::ColumnInfo{.name = std::string(col[i]), .type = static_cast<TypeId>(types[i])};
     }
 
     ptr += header_size;

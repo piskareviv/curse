@@ -1,10 +1,12 @@
 #include "groupby.hpp"
 
 #include <deque>
+#include <functional>
 #include <optional>
 #include <type_traits>
 
 #include "dependencies/gtl/include/gtl/phmap.hpp"
+#include "src/core/types.hpp"
 #include "src/core/util.hpp"
 
 namespace curse {
@@ -64,7 +66,7 @@ public:
 
 private:
     template <TypeId id>
-    using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher>;
+    using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
 
     template <AggType tp, TypeId id>
     using AggrVec = std::deque<AggregatorImpl<tp, id>>;
@@ -216,8 +218,8 @@ public:
                         [&]<TypeId id>(const ColumnT<id>& col) {
                             HashMap<id>& map = std::get<HashMap<id>>(maps1[i]);
                             for (size_t j = 0; j < n_rows; j++) {
-                                auto& val = col[j];
-                                auto [it, inserted] = map.insert({val, map.size()});
+                                typename ReprType<id>::T val(col[j]);
+                                auto [it, inserted] = map.insert({std::move(val), map.size()});
                                 map2_keys[j][i] = it->second;
                             }
                         },

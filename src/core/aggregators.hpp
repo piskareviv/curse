@@ -46,7 +46,7 @@ struct AggregatorImpl {
         ENSURE_MSG(false, "something went wrong");
     }
 
-    void Update(const T&) {
+    void Update(const auto&) {
         ENSURE_MSG(false, "something went wrong");
     }
 
@@ -70,7 +70,7 @@ struct AggregatorImpl<AggType::Count, id> {
 
     AggregatorImpl() : counter(0) {}
 
-    void Update(const T& value) {
+    void Update(const auto& value) {
         counter += 1;
         (void)value;
     }
@@ -173,7 +173,7 @@ template <AggType tp, TypeId id>
     requires(tp == AggType::Min || tp == AggType::Max)
 struct AggregatorImpl<tp, id> {
     using T = ReprType<id>::T;
-    using CmpTp = std::conditional_t<tp == AggType::Min, std::less<T>, std::greater<T>>;
+    using CmpTp = std::conditional_t<tp == AggType::Min, std::less<>, std::greater<>>;
 
     static constexpr TypeId kResultTypeId = id;
     using ResultT = ReprType<kResultTypeId>::T;
@@ -182,7 +182,7 @@ struct AggregatorImpl<tp, id> {
 
     AggregatorImpl() {}
 
-    void Update(const T& value) {
+    void Update(const auto& value) {
         if (!min.has_value() || CmpTp()(value, min.value())) {
             min = value;
         }
@@ -211,7 +211,7 @@ struct AggregatorImpl<AggType::CountDistinct, id> {
 
     AggregatorImpl() {}
 
-    void Update(const T& value) {
+    void Update(const auto& value) {
         set.insert(ValueT<id>(value));
     }
 
@@ -268,7 +268,7 @@ struct AggregatorTp {
         std::visit(
             [&]<TypeId id>(const AggregatorImpl<tp, id>& ag) -> void {
                 constexpr TypeId kResId = AggregatorImpl<tp, id>::kResultTypeId;
-                result.value = ValueT<kResId>{.value = ag.Get()};
+                result.value = ValueT<kResId>(ag.Get());
             },
             agg);
         return result;

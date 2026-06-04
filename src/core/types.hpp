@@ -125,8 +125,24 @@ struct ValueT {
         return a.value == b.value;
     }
 };
+template <>
+struct ValueT<TypeId::String> {
+    ReprType<TypeId ::String>::T value;
+
+    ValueT() {}
+
+    // template <typename U>
+    ValueT(std::string val) : value(std::move(val)) {}
+    ValueT(std::string_view val) : value(val) {}
+
+    friend bool operator==(const ValueT& a, const ValueT& b) {
+        return a.value == b.value;
+    }
+};
 
 struct MyHasher {
+    using is_transparent = void;  // NOLINT
+
     template <typename T>
     std::size_t operator()(const T& value) const {
         if constexpr (std::is_same_v<T, ReprType<TypeId::Timestamp>::T> ||
@@ -183,7 +199,7 @@ public:
     }
 };
 
-struct ValueHasher {  // NOLINT
+struct ValueHasher {
     size_t operator()(const Value& value) const {
         return std::visit([&]<TypeId id>(const ValueT<id>& vl) { return ValueT_Hasher<id>()(vl); }, value.value);
     }
@@ -198,14 +214,14 @@ struct ColumnT<id> {
     static constexpr TypeId kId = id;
 
 private:
-    std::deque<T> values;  // NOLINT
+    std::deque<T> m_values;
 
 public:
     ColumnT() {}
-    ColumnT(ValueT<id> val) : values{val.value} {}
+    ColumnT(ValueT<id> val) : m_values{val.value} {}
 
     void Append(T value) {
-        values.push_back(std::move(value));
+        m_values.push_back(std::move(value));
     }
 
     void Append(std::span<const T> sp) {
@@ -214,64 +230,161 @@ public:
         }
     }
 
-    void Append(const ColumnT<id>& col) {
-        for (const auto& value : col.values) {
+    void Append(const ColumnT& col) {
+        for (const auto& value : col.m_values) {
             Append(value);
         }
     }
 
     void Clear() {
-        values.clear();
+        m_values.clear();
     }
 
     std::vector<T> ToVector() const {
-        return std::vector<T>(values.begin(), values.end());
+        return std::vector<T>(m_values.begin(), m_values.end());
     }
     static ColumnT FromVector(const std::vector<T>& vec) {
         ColumnT col;
-        col.values.assign(vec.begin(), vec.end());
+        col.m_values.assign(vec.begin(), vec.end());
         return col;
     }
 
-    T& operator[](size_t ind) {
-        return values[ind];
-    }
+    // T& operator[](size_t ind) {
+    //     return m_values[ind];
+    // }
     const T& operator[](size_t ind) const {
-        return values[ind];
+        return m_values[ind];
     }
 
     size_t Size() const {
-        return values.size();
+        return m_values.size();
     }
 
     friend bool operator==(const ColumnT& a, const ColumnT& b) {
-        return a.values == b.values;
+        return a.m_values == b.m_values;
     }
 
-    ColumnT<id> Filter(std::span<const char> filt) const {
+    ColumnT Filter(std::span<const char> filt) const {
         ENSURE(filt.size() == Size());
-        ColumnT<id> col;
-        for (size_t i = 0; i < values.size(); i++) {
+        ColumnT col;
+        for (size_t i = 0; i < m_values.size(); i++) {
             if (filt[i]) {
-                col.Append(values[i]);
+                col.Append(m_values[i]);
             }
         }
         return col;
     }
 
-    ColumnT<id> Select(std::span<const size_t> inds) const {
-        ColumnT<id> col;
+    ColumnT Select(std::span<const size_t> inds) const {
+        ColumnT col;
         for (size_t i = 0; i < inds.size(); i++) {
-            col.Append(values[inds[i]]);
+            col.Append(m_values[inds[i]]);
         }
         return col;
     }
 
     void StableArgsort(std::span<size_t> sp, bool reversed = false) const {
         if (!reversed) {
-            std::stable_sort(sp.begin(), sp.end(), [&](size_t a, size_t b) { return values[a] < values[b]; });
+            std::stable_sort(sp.begin(), sp.end(), [&](size_t a, size_t b) { return m_values[a] < m_values[b]; });
         } else {
-            std::stable_sort(sp.begin(), sp.end(), [&](size_t a, size_t b) { return values[a] > values[b]; });
+            std::stable_sort(sp.begin(), sp.end(), [&](size_t a, size_t b) { return m_values[a] > m_values[b]; });
+        }
+    }
+};
+
+template <>
+struct ColumnT<TypeId::String> {
+    using T = ReprType<TypeId::String>::T;
+    static constexpr TypeId kId = TypeId::String;
+
+private:
+    std::string m_data;
+    std::vector<size_t> m_offsets;
+
+public:
+    ColumnT() : m_offsets{0} {}
+    ColumnT(ValueT<TypeId::String> val) {
+        m_data = std::move(val.value);
+        m_offsets = {0, m_data.size()};
+    }
+
+    void Append(std::string_view sv) {
+        m_data += sv;
+        m_offsets.push_back(m_offsets.back() + sv.size());
+    }
+
+    void Append(std::span<const T> sp) {
+        for (const auto& value : sp) {
+            Append(value);
+        }
+    }
+
+    void Append(const ColumnT& col) {
+        for (size_t i = 0; i < col.Size(); i++) {
+            Append(col[i]);
+        }
+    }
+
+    void Clear() {
+        *this = ColumnT();
+    }
+
+    std::vector<T> ToVector() const {
+        std::vector<std::string> vec(Size());
+        for (size_t i = 0; i < Size(); i++) {
+            vec[i] = (*this)[i];
+        }
+        return vec;
+    }
+    static ColumnT FromVector(const std::vector<T>& vec) {
+        ColumnT col;
+        for (auto& val : vec) {
+            col.Append(val);
+        }
+        return col;
+    }
+
+    // T& operator[](size_t ind) {
+    //     return m_values[ind];
+    // }
+    std::string_view operator[](size_t ind) const {
+        size_t l = m_offsets[ind];
+        size_t r = m_offsets[ind + 1];
+        return std::string_view(m_data).substr(l, r - l);
+    }
+
+    size_t Size() const {
+        return m_offsets.size() - 1;
+    }
+
+    friend bool operator==(const ColumnT& a, const ColumnT& b) {
+        return a.m_data == b.m_data && a.m_offsets == b.m_offsets;
+    }
+
+    ColumnT Filter(std::span<const char> filt) const {
+        ENSURE(filt.size() == Size());
+        ColumnT col;
+        for (size_t i = 0; i < Size(); i++) {
+            if (filt[i]) {
+                col.Append((*this)[i]);
+            }
+        }
+        return col;
+    }
+
+    ColumnT Select(std::span<const size_t> inds) const {
+        ColumnT col;
+        for (size_t i = 0; i < inds.size(); i++) {
+            col.Append((*this)[inds[i]]);
+        }
+        return col;
+    }
+
+    void StableArgsort(std::span<size_t> sp, bool reversed = false) const {
+        if (!reversed) {
+            std::stable_sort(sp.begin(), sp.end(), [&](size_t a, size_t b) { return (*this)[a] < (*this)[b]; });
+        } else {
+            std::stable_sort(sp.begin(), sp.end(), [&](size_t a, size_t b) { return (*this)[a] > (*this)[b]; });
         }
     }
 };

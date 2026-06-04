@@ -330,7 +330,7 @@ ColumnOperation ColumnOperation::Select(std::string mask_col, std::string col1, 
 }
 
 template <TypeId id>
-using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher>;
+using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
 
 using HashMapEnum = MakeEnum<HashMap, AllTypesIds>::T;
 
@@ -370,8 +370,8 @@ ColumnOperation ColumnOperation::SetContains(std::vector<std::string> inp_cols, 
                     [&]<TypeId id>(const ColumnT<id>& col) {
                         HashMap<id>& map = std::get<HashMap<id>>(data.maps[i]);
                         for (size_t j = 0; j < n_rows; j++) {
-                            auto& val = col[j];
-                            auto [it, inserted] = map.insert({val, map.size()});
+                            typename ReprType<id>::T val(col[j]);
+                            auto [it, inserted] = map.insert({std::move(val), map.size()});
                             map2_keys[j][i] = it->second;
                         }
                     },

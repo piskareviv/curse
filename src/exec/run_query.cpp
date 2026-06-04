@@ -640,7 +640,7 @@ std::unique_ptr<BatchStream> Q39(const std::string& file) {
          ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
                          "AdvEngineID", "ae0"),
          ColumnOperation::LogicalAnd("se0", "ae0", "src_cond"),
-         ColumnOperation(Transform::Constant(Value(ValueT<TypeId::String>{""})), "Referer", "empty"),
+         ColumnOperation(Transform::Constant(Value(ValueT<TypeId::String>{std::string_view("")})), "Referer", "empty"),
          ColumnOperation::Select("src_cond", "Referer", "empty", "Src")});
 
     GroupByOperator group_by({"TraficSourceID", "SearchEngineID", "AdvEngineID", "Src", "URL"},

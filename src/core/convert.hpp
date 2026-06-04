@@ -176,6 +176,9 @@ struct Convert<T> {
 template <typename T>
     requires(std::is_same_v<T, ReprType<TypeId::String>::T>)
 struct Convert<T> {
+    static std::string ToString(std::string_view value) {
+        return std::string(value);
+    }
     static std::string ToString(const T& value) {
         return value;
     }
@@ -246,6 +249,10 @@ public:
         }
 
         return result;
+    }
+
+    static ColumnT<id> FromBytes(std::string_view sv) {
+        return FromBytes(std::span(sv));
     }
 
     static ColumnT<id> FromBytes(std::span<const char> bytes) {
