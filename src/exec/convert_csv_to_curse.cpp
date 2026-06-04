@@ -1,7 +1,6 @@
 #include <format>
 #include <fstream>
 #include <iostream>
-#include <istream>
 #include <memory>
 
 #include "src/core/csv.hpp"
