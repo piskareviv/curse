@@ -13,6 +13,7 @@ apt install -y wget
 apt install -y lsb-release
 apt install -y libstdc++-14-dev
 apt install -y clang-20
+apt install -y libgtest-dev
 
 # wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
 # chmod +x /tmp/llvm.sh
