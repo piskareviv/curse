@@ -1,4 +1,5 @@
 #include <format>
+#include <fstream>
 #include <iostream>
 #include <memory>
 
@@ -24,7 +25,8 @@ int main(int argc, char** argv) {
     if (input_file == "-") {
         input_stream = std::make_unique<curse::CsvReader>(std::cin, kHitsSchema);
     } else {
-        input_stream = std::make_unique<curse::CsvReader>(input_file, kHitsSchema);
+        std::ifstream fin(input_file);
+        input_stream = std::make_unique<curse::CsvReader>(fin, kHitsSchema);
     }
 
     WriteAsCurse(output_file, std::move(input_stream));
