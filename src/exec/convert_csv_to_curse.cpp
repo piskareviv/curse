@@ -1,6 +1,7 @@
 #include <format>
 #include <fstream>
 #include <iostream>
+#include <istream>
 #include <memory>
 
 #include "src/core/csv.hpp"
@@ -25,8 +26,8 @@ int main(int argc, char** argv) {
     if (input_file == "-") {
         input_stream = std::make_unique<curse::CsvReader>(std::cin, kHitsSchema);
     } else {
-        std::ifstream fin(input_file);
-        input_stream = std::make_unique<curse::CsvReader>(fin, kHitsSchema);
+        std::unique_ptr<std::ifstream> fin = std::make_unique<std::ifstream>(input_file);
+        input_stream = std::make_unique<curse::CsvReader>(std::move(fin), kHitsSchema);
     }
 
     WriteAsCurse(output_file, std::move(input_stream));
