@@ -169,15 +169,7 @@ struct ValueT_Hasher {  // NOLINT
 
 class Value {
 private:
-    template <typename>
-    struct Aux;
-
-    template <TypeId... types>
-    struct Aux<TypeIdHolder<types...>> {
-        using T = std::variant<ValueT<types>...>;
-    };
-
-    using ValueEnum = Aux<AllTypesIds>::T;
+    using ValueEnum = MakeEnum<ValueT, AllTypesIds>::T;
 
 public:
     ValueEnum value;
@@ -391,16 +383,7 @@ public:
 
 class Column {
 private:
-    template <typename>
-    struct Aux;
-
-    template <TypeId... types>
-    struct Aux<TypeIdHolder<types...>> {
-        using T = std::variant<ColumnT<types>...>;
-    };
-
-    using ColumnEnum = Aux<AllTypesIds>::T;
-    // using ColumnEnum = typename Mystery<TypeId, TypeIdHolder, AllTypesIds, ColumnT, std::variant>::T;
+    using ColumnEnum = MakeEnum<ColumnT, AllTypesIds>::T;
 
     ColumnEnum m_column;
 

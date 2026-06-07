@@ -6,6 +6,7 @@
 #include <type_traits>
 
 #include "dependencies/gtl/include/gtl/phmap.hpp"
+#include "src/core/aggregators.hpp"
 #include "src/core/types.hpp"
 #include "src/core/util.hpp"
 
@@ -71,78 +72,8 @@ private:
     template <AggType tp, TypeId id>
     using AggrVec = std::deque<AggregatorImpl<tp, id>>;
 
-    struct Shenanigans {
-
-        template <typename>
-        struct Aux1;
-
-        template <TypeId... ids>
-        struct Aux1<TypeIdHolder<ids...>> {
-            using T = std::variant<HashMap<ids>...>;
-        };
-
-        using HashMapEnum = Aux1<AllTypesIds>::T;
-
-        template <AggType tp, TypeId id>
-        struct AuxPair {};
-
-        template <std::pair<AggType, TypeId>... pairs>
-        struct AuxPairHolder {};
-
-        template <typename, typename>
-        struct AuxPairHolderConcat;
-
-        template <std::pair<AggType, TypeId>... pairs1, std::pair<AggType, TypeId>... pairs2>
-        struct AuxPairHolderConcat<AuxPairHolder<pairs1...>, AuxPairHolder<pairs2...>> {
-            using T = AuxPairHolder<pairs1..., pairs2...>;
-        };
-
-        template <typename... Holders>
-        struct AuxPairHolderConcatMany;
-
-        template <>
-        struct AuxPairHolderConcatMany<> {
-            using T = AuxPairHolder<>;
-        };
-
-        template <typename Head, typename... Tail>
-        struct AuxPairHolderConcatMany<Head, Tail...> {
-            using T = AuxPairHolderConcat<Head, typename AuxPairHolderConcatMany<Tail...>::T>::T;
-        };
-
-        template <typename, typename>
-        struct CartProd;
-
-        template <AggType tp, TypeId... ids>
-        struct CartProd<AggTypeHolder<tp>, TypeIdHolder<ids...>> {
-            using T = AuxPairHolder<std::pair(tp, ids)...>;
-        };
-
-        template <AggType... tps, TypeId... ids>
-        struct CartProd<AggTypeHolder<tps...>, TypeIdHolder<ids...>> {
-        private:
-            using TpIdHolder = TypeIdHolder<ids...>;
-
-            template <AggType tp>
-            using Aux = CartProd<AggTypeHolder<tp>, TpIdHolder>::T;
-
-        public:
-            using T = AuxPairHolderConcatMany<Aux<tps>...>::T;
-        };
-
-        template <typename>
-        struct Aux2;
-
-        template <std::pair<AggType, TypeId>... pairs>
-        struct Aux2<AuxPairHolder<pairs...>> {
-            using T = std::variant<AggrVec<pairs.first, pairs.second>...>;
-        };
-
-        using AggrVecEnum = Aux2<CartProd<AllAggTypes, AllTypesIds>::T>::T;
-    };
-
-    using HashMapEnum = Shenanigans::HashMapEnum;
-    using AggrVecEnum = Shenanigans::AggrVecEnum;
+    using HashMapEnum = MakeEnum<HashMap, AllTypesIds>::T;
+    using AggrVecEnum = MakeEnumAggr<AggrVec, AllAggTypes, AllTypesIds>::T;
 
 public:
     std::unique_ptr<Batch> Next() override {

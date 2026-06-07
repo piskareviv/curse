@@ -67,22 +67,6 @@ std::pair<std::span<T>, std::span<T>> SplitSpan(std::span<T> span, size_t ind) {
     return {span.subspan(0, ind), span.subspan(ind)};
 }
 
-template <typename Id, template <Id...> typename HolderT, typename HolderTSpec, template <Id> typename ObjT,
-          template <typename...> typename Collection>
-struct Mystery {
-private:
-    template <typename>
-    struct Aux;
-
-    template <Id... ids>
-    struct Aux<HolderT<ids...>> {
-        using T = Collection<ObjT<ids>...>;
-    };
-
-public:
-    using T = Aux<HolderTSpec>::T;
-};
-
 template <size_t... seq>
 void StaticForEach(std::index_sequence<seq...>, auto&& f) {
     (f(std::integral_constant<size_t, seq>()), ...);

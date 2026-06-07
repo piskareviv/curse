@@ -3,10 +3,9 @@
 #include <functional>
 #include <optional>
 #include <type_traits>
-#include <unordered_set>
 #include <variant>
 
-#include "dependencies/gtl/include/gtl/phmap.hpp"
+#include "absl/container/flat_hash_set.h"
 #include "src/core/assert.hpp"
 #include "src/core/types.hpp"
 
@@ -207,7 +206,7 @@ struct AggregatorImpl<AggType::CountDistinct, id> {
     static constexpr TypeId kResultTypeId = TypeId::Int64;
     using ResultT = ReprType<kResultTypeId>::T;
 
-    gtl::flat_hash_set<ValueT<id>, ValueT_Hasher<id>> set;
+    absl::flat_hash_set<ValueT<id>, ValueT_Hasher<id>> set;
 
     AggregatorImpl() {}
 
@@ -226,91 +225,115 @@ struct AggregatorImpl<AggType::CountDistinct, id> {
     }
 };
 
-template <AggType tp>
-struct AggregatorTp {
-    template <typename>
-    struct Aux;
+template <template <AggType, TypeId> typename X, typename TpsHolder, typename IdsHolder>
+struct MakeEnumAggr {
+private:
+    struct Shenanigans {
+        template <AggType tp, TypeId id>
+        struct AuxPair {};
 
-    template <TypeId... ids>
-    struct Aux<TypeIdHolder<ids...>> {
-        using T = std::variant<AggregatorImpl<tp, ids>...>;
+        template <std::pair<AggType, TypeId>... pairs>
+        struct AuxPairHolder {};
+
+        template <typename, typename>
+        struct AuxPairHolderConcat;
+
+        template <std::pair<AggType, TypeId>... pairs1, std::pair<AggType, TypeId>... pairs2>
+        struct AuxPairHolderConcat<AuxPairHolder<pairs1...>, AuxPairHolder<pairs2...>> {
+            using T = AuxPairHolder<pairs1..., pairs2...>;
+        };
+
+        template <typename... Holders>
+        struct AuxPairHolderConcatMany;
+
+        template <>
+        struct AuxPairHolderConcatMany<> {
+            using T = AuxPairHolder<>;
+        };
+
+        template <typename Head, typename... Tail>
+        struct AuxPairHolderConcatMany<Head, Tail...> {
+            using T = AuxPairHolderConcat<Head, typename AuxPairHolderConcatMany<Tail...>::T>::T;
+        };
+
+        template <typename, typename>
+        struct CartProd;
+
+        template <AggType tp, TypeId... ids>
+        struct CartProd<AggTypeHolder<tp>, TypeIdHolder<ids...>> {
+            using T = AuxPairHolder<std::pair(tp, ids)...>;
+        };
+
+        template <AggType... tps, TypeId... ids>
+        struct CartProd<AggTypeHolder<tps...>, TypeIdHolder<ids...>> {
+        private:
+            using TpIdHolder = TypeIdHolder<ids...>;
+
+            template <AggType tp>
+            using Aux = CartProd<AggTypeHolder<tp>, TpIdHolder>::T;
+
+        public:
+            using T = AuxPairHolderConcatMany<Aux<tps>...>::T;
+        };
+
+        template <typename>
+        struct Aux2;
+
+        template <std::pair<AggType, TypeId>... pairs>
+        struct Aux2<AuxPairHolder<pairs...>> {
+            using T = std::variant<X<pairs.first, pairs.second>...>;
+        };
+
+        using Enum = Aux2<typename CartProd<TpsHolder, IdsHolder>::T>::T;
     };
 
-    using AggsEnum = Aux<AllTypesIds>::T;
-
-    AggsEnum agg;
-
-    AggregatorTp() {}
-
-    AggregatorTp(TypeId id) {
-        ExecFor(id, [&]<TypeId id> { agg = AggregatorImpl<tp, id>(); });
-    }
-
-    TypeId Type() const {
-        return std::visit([&]<TypeId id>(const AggregatorImpl<tp, id>&) { return id; }, agg);
-    }
-    TypeId OutputType() const {
-        return std::visit(
-            [&]<TypeId id>(const AggregatorImpl<tp, id>&) { return AggregatorImpl<tp, id>::kResultTypeId; }, agg);
-    }
-
-    void Update(const Value& value) {
-        std::visit([&]<TypeId id>(AggregatorImpl<tp, id>& ag) { ag.Update(std::get<ValueT<id>>(value.value).value); },
-                   agg);
-    }
-
-    void Update(const Column& col) {
-        std::visit([&]<TypeId id>(AggregatorImpl<tp, id>& ag) { ag.Update(std::get<ColumnT<id>>(col.Values())); }, agg);
-    }
-
-    Value Get() const {
-        Value result;
-        std::visit(
-            [&]<TypeId id>(const AggregatorImpl<tp, id>& ag) -> void {
-                constexpr TypeId kResId = AggregatorImpl<tp, id>::kResultTypeId;
-                result.value = ValueT<kResId>(ag.Get());
-            },
-            agg);
-        return result;
-    }
+public:
+    using T = Shenanigans::Enum;
 };
 
-struct Aggregator {
-    template <typename>
-    struct Aux;
+class Aggregator {
+private:
+    using AggsEnum = MakeEnumAggr<AggregatorImpl, AllAggTypes, AllTypesIds>::T;
 
-    template <AggType... tps>
-    struct Aux<AggTypeHolder<tps...>> {
-        using T = std::variant<AggregatorTp<tps>...>;
-    };
+    std::optional<AggsEnum> m_agg;
 
-    using AggsEnum = Aux<AllAggTypes>::T;
-
-    std::optional<AggsEnum> agg;
-
+public:
     Aggregator() {}
 
     Aggregator(AggType tp, TypeId id) {
-        ExecFor(tp, [&]<AggType tp> { agg = AggregatorTp<tp>(id); });
+        ExecFor(tp, [&]<AggType tp> { ExecFor(id, [&]<TypeId id> { m_agg = AggregatorImpl<tp, id>(); }); });
     }
 
-    AggType AggTp() const {
-        return std::visit([&]<AggType tp>(const AggregatorTp<tp>&) { return tp; }, agg.value());
-    }
     TypeId OutputType() const {
-        return std::visit([&]<AggType tp>(const AggregatorTp<tp>& ag) { return ag.OutputType(); }, agg.value());
+        return std::visit(
+            [&]<AggType tp, TypeId id>(const AggregatorImpl<tp, id>&) { return AggregatorImpl<tp, id>::kResultTypeId; },
+            m_agg.value());
     }
 
     void Update(const Value& value) {
-        return std::visit([&]<AggType tp>(AggregatorTp<tp>& ag) { ag.Update(value); }, agg.value());
+        return std::visit(
+            [&]<AggType tp, TypeId id>(AggregatorImpl<tp, id>& ag) {
+                ValueT<id> val = std::get<ValueT<id>>(value.value);
+                ag.Update(val.value);
+            },
+            m_agg.value());
     }
 
     void Update(const Column& col) {
-        return std::visit([&]<AggType tp>(AggregatorTp<tp>& ag) { ag.Update(col); }, agg.value());
+        return std::visit(
+            [&]<AggType tp, TypeId id>(AggregatorImpl<tp, id>& ag) {
+                const ColumnT<id>& cl = std::get<ColumnT<id>>(col.Values());
+                ag.Update(cl);
+            },
+            m_agg.value());
     }
 
     Value Get() const {
-        return std::visit([&]<AggType tp>(const AggregatorTp<tp>& ag) { return ag.Get(); }, agg.value());
+        return std::visit(
+            [&]<AggType tp, TypeId id>(const AggregatorImpl<tp, id>& ag) {
+                return Value(ValueT<AggregatorImpl<tp, id>::kResultTypeId>(ag.Get()));
+            },
+            m_agg.value());
     }
 };
 
