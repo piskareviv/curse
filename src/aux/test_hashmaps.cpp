@@ -22,7 +22,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 #include "dependencies/gtl/include/gtl/phmap.hpp"
-#include "dependencies/sparsepp/sparsepp/spp.h"
 
 // #include "src/dependencies/gtl"
 // #include "dependencies/gtl/
@@ -153,8 +152,6 @@ void TestHasMapImpl_(size_t n, std::string name = "") {
                              Pad(std::format("{:.2f}", tm / n * 1e9), 7));
     std::cout << std::endl;
     // std::cout << std::endl;
-
-    malloc_trim(0);
 }
 
 template <typename Key, typename Mapped, typename HashMap>
@@ -164,6 +161,7 @@ void TestHasMapImpl(std::vector<size_t> vec, std::string name = "") {
 
     for (size_t n : vec) {
         TestHasMapImpl_<Key, Mapped, HashMap>(n, name);
+        malloc_trim(0);
     }
     std::cout << std::endl;
 }
@@ -173,7 +171,6 @@ void TestHasMaps(std::vector<size_t> vec) {
     TestHasMapImpl<Key, Mapped, std::unordered_map<Key, Mapped, std::hash<Key>, std::equal_to<>, TrackingAllocator<std::pair<const Key, Mapped>>>>(vec, "std::unordered_map");
     TestHasMapImpl<Key, Mapped, gtl::flat_hash_map<Key, Mapped, std::hash<Key>, std::equal_to<>, TrackingAllocator<std::pair<const Key, Mapped>>>>(vec, "gtl::flat_hash_map");
     TestHasMapImpl<Key, Mapped, gtl::parallel_flat_hash_map<Key, Mapped, std::hash<Key>, std::equal_to<>, TrackingAllocator<std::pair<const Key, Mapped>>>>(vec, "gtl::parallel_flat_hash_map");
-    TestHasMapImpl<Key, Mapped, spp::sparse_hash_map<Key, Mapped, std::hash<Key>, std::equal_to<>, TrackingAllocator<std::pair<const Key, Mapped>>>>(vec, "spp::sparse_hash_map");
     TestHasMapImpl<Key, Mapped, absl::flat_hash_map<Key, Mapped, std::hash<Key>, std::equal_to<>, TrackingAllocator<std::pair<const Key, Mapped>>>>(vec, "absl::flat_hash_map");
     TestHasMapImpl<Key, Mapped, absl::node_hash_map<Key, Mapped, std::hash<Key>, std::equal_to<>, TrackingAllocator<std::pair<const Key, Mapped>>>>(vec, "absl::node_hash_map");
     TestHasMapImpl<Key, Mapped, absl::btree_map<Key, Mapped, std::less<Key>, TrackingAllocator<std::pair<const Key, Mapped>>>>(vec, "absl::btree_map");
