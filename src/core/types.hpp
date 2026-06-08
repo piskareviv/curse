@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <deque>
 #include <functional>
 #include <memory>
 #include <string>
@@ -53,8 +52,6 @@ constexpr bool IsIntegral(TypeId id) {
     return id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||
            id == TypeId::Int128;
 }
-
-// struct IsIntegral
 
 void ExecFor(TypeId id, auto&& func) {
     [&]<TypeId... types>(TypeIdHolder<types...>) {
@@ -131,7 +128,6 @@ struct ValueT<TypeId::String> {
 
     ValueT() {}
 
-    // template <typename U>
     ValueT(std::string val) : value(std::move(val)) {}
     ValueT(std::string_view val) : value(val) {}
 
@@ -174,13 +170,15 @@ private:
 public:
     ValueEnum value;
 
-    // Value() {}
+    template <TypeId id>
+    static Value From(ValueT<id> vl) {
+        return Value{.value = std::move(vl)};
+    }
 
-    // template <TypeId id>
-    // Value(ValueT<id> vl) : value(std::move(vl)) {}
-
-    // template <TypeId id>
-    // Value(ReprType<id>::T vl) : Value(ValueT<id>(std::move(vl))) {}
+    template <TypeId id>
+    static Value From(ReprType<id>::T vl) {
+        return Value{.value = ValueT<id>(std::move(vl))};
+    }
 
     friend bool operator==(const Value& a, const Value& b) {
         return a.value == b.value;
@@ -197,11 +195,8 @@ struct ValueHasher {
     }
 };
 
-template <TypeId, typename = void>
-struct ColumnT;
-
 template <TypeId id>
-struct ColumnT<id> {
+struct ColumnT {
     using T = ReprType<id>::T;
     static constexpr TypeId kId = id;
 
@@ -240,10 +235,8 @@ public:
         return std::vector<T>(m_values.begin(), m_values.end());
     }
 
-    // static ColumnT FromVector(const std::vector<T>& vec) {
     static ColumnT FromVector(std::vector<T> vec) {
         ColumnT col;
-        // col.m_values.assign(vec.begin(), vec.end());
         col.m_values = std::move(vec);
         return col;
     }
@@ -344,9 +337,6 @@ public:
         return col;
     }
 
-    // T& operator[](size_t ind) {
-    //     return m_values[ind];
-    // }
     std::string_view operator[](size_t ind) const {
         size_t l = m_offsets[ind];
         size_t r = m_offsets[ind + 1];
