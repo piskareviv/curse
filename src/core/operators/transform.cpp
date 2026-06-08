@@ -131,7 +131,6 @@ Transform Transform::RegexpSearch(std::string pattern) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::Int8> res;
             for (size_t i = 0; i < cl.Size(); i++) {
-                // bool found = std::regex_search(cl[i], re);
                 bool found = re2::RE2::PartialMatch(cl[i], *re);
                 res.Append(found);
             }
@@ -142,16 +141,16 @@ Transform Transform::RegexpSearch(std::string pattern) {
 
 Transform Transform::RegexpReplace(std::string pattern, std::string format) {
     std::shared_ptr<const re2::RE2> re = std::make_shared<re2::RE2>(pattern);
+    ENSURE_MSG(re->ok(), "invalid regex");
 
     return Transform(
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::String> res;
             for (size_t i = 0; i < cl.Size(); i++) {
-                // std::string s = std::regex_replace(cl[i], re, format);
-                std::string s;
+                std::string s(cl[i]);
                 re2::RE2::GlobalReplace(&s, *re, format);
-                res.Append(s);
+                res.Append(std::move(s));
             }
             return Column(std::move(res));
         },

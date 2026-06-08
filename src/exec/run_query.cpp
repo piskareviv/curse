@@ -389,13 +389,15 @@ std::unique_ptr<BatchStream> Q27(const std::string& file) {
     return std::move(reader) >= non_empty >= trs >= group_by >= having >= keep >= drop >= sort;
 }
 
+// SELECT REGEXP_REPLACE(Referer, '^https?://(?:www\.)?([^/]+)/.*$', '\1') AS k, AVG(length(Referer)) AS l, COUNT(*) AS
+// c, MIN(Referer) FROM hits WHERE Referer <> '' GROUP BY k HAVING COUNT(*) > 100000 ORDER BY l DESC LIMIT 25;
 std::unique_ptr<BatchStream> Q28(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"Referer"}));
 
     FilterOperator non_empty("Referer");
 
     auto trs = TransformOperator(
-        {ColumnOperation(Transform::RegexpReplace("^https?://(?:www\\.)?([^/]+)/.*$", "$1"), "Referer", "k"),
+        {ColumnOperation(Transform::RegexpReplace("^https?://(?:www\\.)?([^/]+)/.*$", "\\1"), "Referer", "k"),
          ColumnOperation(Transform::Strlen(), "Referer", "len")});
 
     GroupByOperator group_by({"k"}, {
@@ -412,7 +414,9 @@ std::unique_ptr<BatchStream> Q28(const std::string& file) {
 
     SortOperator sort({{.inp_col = "l", .reversed = true}}, 25);
 
-    return std::move(reader) >= non_empty >= trs >= group_by >= having >= keep >= sort;
+    SelectOperator select({"k", "l", "c", "r"});
+
+    return std::move(reader) >= non_empty >= trs >= group_by >= having >= keep >= select >= sort;
 }
 
 std::unique_ptr<BatchStream> Q30(const std::string& file) {
