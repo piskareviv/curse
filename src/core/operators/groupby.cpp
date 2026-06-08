@@ -5,7 +5,7 @@
 #include <optional>
 #include <type_traits>
 
-#include "dependencies/gtl/include/gtl/phmap.hpp"
+#include "absl/container/flat_hash_map.h"
 #include "src/core/aggregators.hpp"
 #include "src/core/types.hpp"
 #include "src/core/util.hpp"
@@ -67,7 +67,7 @@ public:
 
 private:
     template <TypeId id>
-    using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
+    using HashMap = absl::flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
 
     template <AggType tp, TypeId id>
     using AggrVec = std::deque<AggregatorImpl<tp, id>>;
@@ -94,7 +94,7 @@ public:
             using IdBundleT = std::conditional_t<NKeys <= kNKeysVector, std::array<size_t, NKeys>, std::vector<size_t>>;
 
             std::vector<HashMapEnum> maps1;
-            gtl::parallel_flat_hash_map<IdBundleT, size_t, VecHasher<size_t>> map2;
+            absl::flat_hash_map<IdBundleT, size_t, VecHasher<size_t>> map2;
             std::vector<AggrVecEnum> aggrs;
 
             size_t aggrs_rows = 0;

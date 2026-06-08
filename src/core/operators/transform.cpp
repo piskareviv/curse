@@ -8,7 +8,7 @@
 #include <variant>
 #include <vector>
 
-#include "dependencies/gtl/include/gtl/phmap.hpp"
+#include "absl/container/flat_hash_map.h"
 #include "re2/re2.h"
 #include "src/core/assert.hpp"
 #include "src/core/types.hpp"
@@ -330,7 +330,7 @@ ColumnOperation ColumnOperation::Select(std::string mask_col, std::string col1, 
 }
 
 template <TypeId id>
-using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
+using HashMap = absl::flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
 
 using HashMapEnum = MakeEnum<HashMap, AllTypesIds>::T;
 
