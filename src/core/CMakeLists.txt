@@ -42,6 +42,7 @@ add_library(curse_core
   operators/transform.cpp
   thread_pool.hpp
   thread_pool.cpp
+  aggregators.cpp
 )
   
 target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})
