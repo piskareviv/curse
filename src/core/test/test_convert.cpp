@@ -1,4 +1,5 @@
 #include <chrono>
+#include <string>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -99,6 +100,16 @@ TEST(Convert, StringEdgeCases2) {
             }
         }
     }
+}
+
+TEST(ToString, Int8_and_Int16) {
+    for (int i = -128; i <= 127; i++) {
+        ASSERT_EQ(Convert<ReprType<TypeId::Int8>::T>::ToString(i), std::to_string(i));
+        ASSERT_EQ(Convert<ReprType<TypeId::Int16>::T>::ToString(i), std::to_string(i));
+    }
+
+    ASSERT_EQ(Convert<ReprType<TypeId::Int16>::T>::ToString(-10000), std::to_string(-10000));
+    ASSERT_EQ(Convert<ReprType<TypeId::Int16>::T>::ToString(10000), std::to_string(10000));
 }
 
 // ниже нейрослоп
