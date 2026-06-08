@@ -8,6 +8,8 @@
 
 #include "dependencies/ctpl/ctpl_stl.h"
 
+namespace curse {
+
 struct ThreadPool::Impl {
     ctpl::thread_pool pool;
 };
@@ -26,3 +28,5 @@ std::future<void> ThreadPool::Push(std::function<void()> f) {
 ThreadPool::~ThreadPool() {}
 
 ThreadPool thread_pool;
+
+}  // namespace curse

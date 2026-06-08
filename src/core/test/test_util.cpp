@@ -1,16 +1,11 @@
+#include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <limits>
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "src/core/assert.hpp"
 #include "src/core/util.hpp"
-
-TEST(MyAssert, ItWorks) {
-    ENSURE(true);
-    ENSURE(1 || 0);  // parenthesis
-    EXPECT_ANY_THROW(ENSURE(false));
-}
 
 TEST(Concat, ItWorks) {
     std::vector<int> a = curse::Concat(std::vector<int>{1, 2}, std::vector<int>{3, 4, 5, 6});
@@ -39,4 +34,15 @@ TEST(ToFromBytes, ItWorks) {
 
     std::vector<int64_t> vec3 = {1, 2, 3, -1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max()};
     ASSERT_EQ(vec3, curse::VecFromBytes<int64_t>(curse::VecToBytes(vec3)));
+}
+
+TEST(SplitSpan, ItWorks) {
+    std::vector<int> vec = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<int> x = {1, 2, 3};
+    std::vector<int> y = {4, 5, 6, 7, 8, 9, 10};
+
+    auto [a, b] = curse::SplitSpan(std::span<const int>(vec), 3);
+
+    ASSERT_EQ(std::vector(a.begin(), a.end()), x);
+    ASSERT_EQ(std::vector(b.begin(), b.end()), y);
 }

@@ -331,7 +331,7 @@ public:
     Value Get() const {
         return std::visit(
             [&]<AggType tp, TypeId id>(const AggregatorImpl<tp, id>& ag) {
-                return Value(ValueT<AggregatorImpl<tp, id>::kResultTypeId>(ag.Get()));
+                return Value::From(ValueT<AggregatorImpl<tp, id>::kResultTypeId>(ag.Get()));
             },
             m_agg.value());
     }

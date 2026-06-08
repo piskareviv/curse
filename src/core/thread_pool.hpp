@@ -4,6 +4,8 @@
 #include <future>
 #include <memory>
 
+namespace curse {
+
 class ThreadPool {
 private:
     struct Impl;
@@ -18,3 +20,5 @@ public:
 };
 
 extern ThreadPool thread_pool;
+
+}  // namespace curse
