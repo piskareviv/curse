@@ -1,6 +1,7 @@
 #include "transform.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <unordered_map>
@@ -59,7 +60,13 @@ Transform Transform::Strlen() {
             ColumnT<TypeId::Int64> res;
             // res.values.reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
-                res.Append(cl[i].size());
+                int64_t len = 0;
+                using uchar = unsigned char;  // NOLINT
+                for (char ch : cl[i]) {
+                    len += static_cast<uchar>(static_cast<uchar>(ch) & static_cast<uchar>(0xc0)) !=
+                           static_cast<uchar>(0x80);
+                }
+                res.Append(len);
             }
             return Column(std::move(res));
         },
