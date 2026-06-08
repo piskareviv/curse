@@ -54,31 +54,4 @@ void OfstreamWriter::Write(std::span<const char> bytes) {
 //     Write(bytes);
 // }
 
-BufferedReader::BufferedReader(std::unique_ptr<FileReader> reader, size_t buf_size)
-    : m_reader(std::move(reader)), m_beg(0), m_end(0), m_ptr(0), m_file_size(m_reader->GetSize()) {
-    m_buf.resize(buf_size);
-}
-
-char BufferedReader::Peek() {
-    if (m_beg == m_end) {
-        size_t dlt = std::min(m_file_size - m_ptr, m_buf.size());
-        ENSURE_MSG(dlt > 0, "there are no more bytes in the file");
-        m_reader->ReadBytes(dlt, std::span(m_buf).subspan(0, dlt));
-
-        m_beg = 0;
-        m_end = dlt;
-        m_ptr += dlt;
-    }
-    return m_buf[m_beg];
-}
-
-char BufferedReader::NextChar() {
-    Peek();
-    return m_buf[m_beg++];
-}
-
-bool BufferedReader::IsEnd() {
-    return m_beg == m_end && m_ptr == m_file_size;
-}
-
 }  // namespace curse

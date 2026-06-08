@@ -2,10 +2,8 @@
 
 #include <cstddef>
 #include <fstream>
-#include <memory>
 #include <span>
 #include <string>
-#include <vector>
 
 namespace curse {
 
@@ -59,24 +57,6 @@ public:
     void Write(std::span<const char> bytes) override;
 
     // void WriteAt(size_t pos, std::span<const char> bytes) override;
-};
-
-class BufferedReader {
-private:
-    std::unique_ptr<FileReader> m_reader;
-    std::vector<char> m_buf;
-    size_t m_beg, m_end;  // indices in m_buf
-    size_t m_ptr;         // used bytes in file
-    size_t m_file_size;
-
-public:
-    BufferedReader(std::unique_ptr<FileReader> reader, size_t buf_size = 1 << 20 /* 1 MB */);
-
-    // throws if there is no next char
-    char Peek();
-    char NextChar();
-
-    bool IsEnd();
 };
 
 };  // namespace curse
