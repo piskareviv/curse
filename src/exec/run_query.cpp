@@ -10,6 +10,7 @@
 #include "src/core/convert.hpp"
 #include "src/core/csv.hpp"
 #include "src/core/operators.hpp"
+#include "src/core/operators/drop.hpp"
 #include "src/core/operators/filter.hpp"
 #include "src/core/operators/select.hpp"
 #include "src/core/operators/transform.hpp"
@@ -359,7 +360,7 @@ std::unique_ptr<BatchStream> Q23(const std::string& file) {
 
     SortOperator sort({{.inp_col = "EventTime"}}, 10);
 
-    return std::move(reader) >= trs >= filter >= sort;
+    return std::move(reader) >= trs >= filter >= DropOperator({"match"}) >= sort;
 }
 
 // SELECT CounterID, AVG(length(URL)) AS l, COUNT(*) AS c FROM hits WHERE URL <> '' GROUP BY CounterID HAVING COUNT(*) >
