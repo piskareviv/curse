@@ -12,7 +12,6 @@
 #include <variant>
 
 #include "absl/container/flat_hash_map.h"
-#include "dependencies/vince/csv.hpp"
 #include "src/core/aggregators.hpp"
 #include "src/core/assert.hpp"
 #include "src/core/convert.hpp"
