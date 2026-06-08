@@ -6,6 +6,7 @@
 #include <cstring>
 #include <deque>
 #include <functional>
+#include <numeric>
 #include <optional>
 #include <type_traits>
 #include <utility>
@@ -135,18 +136,24 @@ public:
 
         const std::shared_ptr<const Schema>& stream_schema = m_stream->GetSchema();
 
-        size_t n_bytes = 0;
+        std::vector<size_t> key_sizes;
+
         for (size_t ind : m_key_col_inds) {
             TypeId id = stream_schema->Columns()[ind].type;
             ExecFor(id, [&]<TypeId id> {
                 if constexpr (ConvertR<id>::kHasRawType) {
-                    n_bytes += sizeof(typename ConvertR<id>::RawT);
+                    key_sizes.push_back(sizeof(typename ConvertR<id>::RawT));
                 } else {
-                    n_bytes += sizeof(size_t);
+                    key_sizes.push_back(sizeof(size_t));
                 }
             });
         }
+        size_t n_bytes = std::accumulate(key_sizes.begin(), key_sizes.end(), static_cast<size_t>(0));
         size_t n_chunks = (n_bytes + (kChunkSize - 1)) / kChunkSize;
+
+        std::vector<size_t> order(n_keys);
+        std::iota(order.begin(), order.end(), static_cast<size_t>(0));
+        std::sort(order.begin(), order.end(), [&](size_t a, size_t b) { return key_sizes[a] > key_sizes[b]; });
 
         std::vector<HashMapEnum> maps1;
         // absl::flat_hash_map<IdBundleT, size_t, VecHasher<size_t>> map2;
@@ -222,19 +229,22 @@ public:
                 }
 
                 for (size_t i = 0, dlt = 0; i < n_keys; i++) {
+                    size_t ind = order[i];
                     std::visit(
                         [&]<TypeId id>(const ColumnT<id>& col) {
                             if constexpr (ConvertR<id>::kHasRawType) {
                                 constexpr size_t kBytes = sizeof(typename ConvertR<id>::RawT);
+
                                 for (size_t j = 0; j < n_rows; j++) {
                                     typename ConvertR<id>::RawT key = ConvertR<id>::ToRaw(col[j]);
                                     memcpy(&map2_keys[j][dlt], &key, kBytes);
                                 }
+
                                 dlt += kBytes;
                             } else {
                                 constexpr size_t kBytes = sizeof(size_t);
 
-                                HashMap<id>& map = std::get<HashMap<id>>(maps1[i]);
+                                HashMap<id>& map = std::get<HashMap<id>>(maps1[ind]);
                                 for (size_t j = 0; j < n_rows; j++) {
                                     typename ReprType<id>::T val(col[j]);
                                     auto [it, inserted] = map.insert({std::move(val), map.size()});
@@ -245,7 +255,7 @@ public:
                                 dlt += kBytes;
                             }
                         },
-                        cols[m_key_col_inds[i]].Values());
+                        cols[m_key_col_inds[ind]].Values());
                 }
 
                 for (size_t i = 0; i < n_rows; i++) {
