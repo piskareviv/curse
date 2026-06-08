@@ -42,19 +42,19 @@ struct AggregatorImpl {
     using ResultT = ReprType<kResultTypeId>::T;
 
     AggregatorImpl() {
-        ENSURE_MSG(false, "something went wrong");
+        ENSURE_MSG(false, "invalid aggregation");
     }
 
     void Update(const auto&) {
-        ENSURE_MSG(false, "something went wrong");
+        ENSURE_MSG(false, "invalid aggregation");
     }
 
     void Update(const ColumnT<id>&) {
-        ENSURE_MSG(false, "something went wrong");
+        ENSURE_MSG(false, "invalid aggregation");
     }
 
     ResultT Get() const {
-        ENSURE_MSG(false, "something went wrong");
+        ENSURE_MSG(false, "invalid aggregation");
     }
 };
 

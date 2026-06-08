@@ -217,11 +217,15 @@ public:
             }
         };
 
-        StaticFor<kNKeysVector + 2>([&](auto n) {
-            if (n_keys == n) {
-                next.template operator()<n>();
-            }
-        });
+        if (n_keys <= kNKeysVector) {
+            StaticFor<kNKeysVector + 1>([&](auto n) {
+                if (n_keys == n) {
+                    next.template operator()<n>();
+                }
+            });
+        } else {
+            next.template operator()<kNKeysVector + 1>();
+        }
 
         m_stream = nullptr;
         return std::make_unique<Batch>(m_schema, std::move(result));
