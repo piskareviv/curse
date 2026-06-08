@@ -206,7 +206,7 @@ struct ColumnT<id> {
     static constexpr TypeId kId = id;
 
 private:
-    std::deque<T> m_values;
+    std::vector<T> m_values;
 
 public:
     ColumnT() {}
@@ -228,6 +228,10 @@ public:
         }
     }
 
+    void Reserve(size_t n) {
+        m_values.reserve(n);
+    }
+
     void Clear() {
         m_values.clear();
     }
@@ -235,15 +239,15 @@ public:
     std::vector<T> ToVector() const {
         return std::vector<T>(m_values.begin(), m_values.end());
     }
-    static ColumnT FromVector(const std::vector<T>& vec) {
+
+    // static ColumnT FromVector(const std::vector<T>& vec) {
+    static ColumnT FromVector(std::vector<T> vec) {
         ColumnT col;
-        col.m_values.assign(vec.begin(), vec.end());
+        // col.m_values.assign(vec.begin(), vec.end());
+        col.m_values = std::move(vec);
         return col;
     }
 
-    // T& operator[](size_t ind) {
-    //     return m_values[ind];
-    // }
     const T& operator[](size_t ind) const {
         return m_values[ind];
     }
@@ -309,6 +313,10 @@ public:
         for (const auto& value : sp) {
             Append(value);
         }
+    }
+
+    void Reserve(size_t n) {
+        m_offsets.reserve(n + 1);
     }
 
     void Append(const ColumnT& col) {

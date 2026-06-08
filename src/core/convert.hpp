@@ -20,10 +20,10 @@
 namespace curse {
 
 template <TypeId>
-struct Helper;
+struct ConvertR;
 
 template <>
-struct Helper<TypeId::Date> {
+struct ConvertR<TypeId::Date> {
     using T = ReprType<TypeId::Date>::T;
     using RawT = int32_t;
 
@@ -37,7 +37,7 @@ struct Helper<TypeId::Date> {
 };
 
 template <>
-struct Helper<TypeId::Timestamp> {
+struct ConvertR<TypeId::Timestamp> {
     using T = ReprType<TypeId::Timestamp>::T;
     using RawT = int64_t;
 
@@ -47,6 +47,22 @@ struct Helper<TypeId::Timestamp> {
 
     static T FromRaw(const RawT& raw) {
         return std::chrono::system_clock::time_point(std::chrono::nanoseconds(raw));
+    }
+};
+
+template <TypeId id>
+    requires(id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||
+             id == TypeId::Int128 || id == TypeId::Char || id == TypeId::Float64)
+struct ConvertR<id> {
+    using T = ReprType<id>::T;
+    using RawT = T;
+
+    static RawT ToRaw(const T& value) {
+        return value;
+    }
+
+    static T FromRaw(const RawT& raw) {
+        return raw;
     }
 };
 
@@ -205,13 +221,13 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Int8 || id == TypeId:
 template <TypeId id>
 struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Date || id == TypeId::Timestamp>> {
     using T = ReprType<id>::T;
-    using RawT = Helper<id>::RawT;
+    using RawT = ConvertR<id>::RawT;
     static constexpr TypeId kId = id;
 
     static std::vector<char> ToBytes(const ColumnT<id>& col) {
         std::vector<RawT> vec(col.Size());
         for (size_t i = 0; i < col.Size(); i++) {
-            vec[i] = Helper<id>::ToRaw(col[i]);
+            vec[i] = ConvertR<id>::ToRaw(col[i]);
         }
         return VecToBytes(vec);
     }
@@ -220,7 +236,7 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Date || id == TypeId:
         std::vector<RawT> vec(VecFromBytes<RawT>(bytes));
         ColumnT<id> col;
         for (size_t i = 0; i < vec.size(); i++) {
-            col.Append(Helper<id>::FromRaw(vec[i]));
+            col.Append(ConvertR<id>::FromRaw(vec[i]));
         }
         return col;
     }
