@@ -29,6 +29,8 @@ Transform Transform::Constant(Value value) {
                     const auto& vl = val.value;
 
                     ColumnT<id> res;
+                    res.Reserve(sz);
+
                     for (size_t i = 0; i < sz; i++) {
                         res.Append(vl);
                     }
@@ -44,7 +46,7 @@ Transform Transform::LogicalNot() {
         [=](const Column& col) {
             const ColumnT<TypeId::Int8>& cl = std::get<ColumnT<TypeId::Int8>>(col.Values());
             ColumnT<TypeId::Int8> res;
-            // res.values.reserve(cl.Size());
+            res.Reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 res.Append(!cl[i]);
             }
@@ -58,7 +60,7 @@ Transform Transform::Strlen() {
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::Int64> res;
-            // res.values.reserve(cl.Size());
+            res.Reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 int64_t len = 0;
                 using uchar = unsigned char;  // NOLINT
@@ -77,12 +79,14 @@ Transform Transform::Compare(ComparisonType how, Value value) {
     return Transform(
         [=](const Column& col) {
             ColumnT<TypeId::Int8> res;
+
             std::visit(
                 [&]<TypeId id>(const ValueT<id>& val) -> void {
                     const auto& vl = val.value;
 
                     const ColumnT<id>& cl = std::get<ColumnT<id>>(col.Values());
                     size_t sz = cl.Size();
+                    res.Reserve(sz);
 
                     switch (how) {
                         case ComparisonType::Equal:
@@ -130,6 +134,7 @@ Transform Transform::RegexpSearch(std::string pattern) {
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::Int8> res;
+            res.Reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 bool found = re2::RE2::PartialMatch(cl[i], *re);
                 res.Append(found);
@@ -147,6 +152,7 @@ Transform Transform::RegexpReplace(std::string pattern, std::string format) {
         [=](const Column& col) {
             const ColumnT<TypeId::String>& cl = std::get<ColumnT<TypeId::String>>(col.Values());
             ColumnT<TypeId::String> res;
+            res.Reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 std::string s(cl[i]);
                 re2::RE2::GlobalReplace(&s, *re, format);
@@ -162,7 +168,7 @@ Transform Transform::ExtractMinute() {
         [=](const Column& col) {
             const ColumnT<TypeId::Timestamp>& cl = std::get<ColumnT<TypeId::Timestamp>>(col.Values());
             ColumnT<TypeId::Int64> res;
-            // res.values.reserve(cl.Size());
+            res.Reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 std::chrono::system_clock::time_point ts = cl[i];
                 auto minutes = std::chrono::duration_cast<std::chrono::minutes>(ts.time_since_epoch()).count();
@@ -178,6 +184,7 @@ Transform Transform::TruncateToMinutes() {
         [=](const Column& col) {
             const ColumnT<TypeId::Timestamp>& cl = std::get<ColumnT<TypeId::Timestamp>>(col.Values());
             ColumnT<TypeId::Timestamp> res;
+            res.Reserve(cl.Size());
             for (size_t i = 0; i < cl.Size(); i++) {
                 std::chrono::system_clock::time_point ts = cl[i];
                 std::chrono::system_clock::time_point tr = std::chrono::floor<std::chrono::minutes>(ts);
@@ -221,6 +228,7 @@ ColumnOperation ColumnOperation::LogicalOp(std::string col1, std::string col2, s
         ENSURE(col2.Size() == sz);
 
         ColumnT<TypeId::Int8> col;
+        col.Reserve(sz);
         for (size_t i = 0; i < sz; i++) {
             switch (op) {
                 case Logical::And:
@@ -265,6 +273,8 @@ ColumnOperation ColumnOperation::ArithmeticOp(std::string col1, std::string col2
         auto aux = [sz, op]<TypeId id1, TypeId id2, TypeId id>(const ColumnT<id1>& cl1, const ColumnT<id2>& cl2,
                                                                ColumnT<id>& cl) {
             using T = ColumnT<id>::T;
+
+            cl.Reserve(sz);
             for (size_t i = 0; i < sz; i++) {
                 switch (op) {
                     case Arithmetic::Add:
@@ -320,7 +330,7 @@ ColumnOperation ColumnOperation::Select(std::string mask_col, std::string col1, 
                 ENSURE(cl2.Size() == sz && cl3.Size() == sz);
 
                 ColumnT<id> result;
-                // result.values.reserve(sz);
+                result.Reserve(sz);
                 for (size_t i = 0; i < sz; i++) {
                     result.Append(mask[i] ? cl2[i] : cl3[i]);
                 }

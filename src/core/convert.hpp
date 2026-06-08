@@ -235,6 +235,7 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Date || id == TypeId:
     static ColumnT<id> FromBytes(std::span<const char> bytes) {
         std::vector<RawT> vec(VecFromBytes<RawT>(bytes));
         ColumnT<id> col;
+        col.Reserve(vec.size());
         for (size_t i = 0; i < vec.size(); i++) {
             col.Append(ConvertR<id>::FromRaw(vec[i]));
         }
@@ -285,7 +286,7 @@ public:
         for (; i + 1 < bytes.size(); i++) {
             char ch = bytes[i];
             if (ch == kDelim) {
-                col.Append(std::move(token));
+                col.Append(token);
                 token.clear();
             } else {
                 if (ch != kEscape) {

@@ -400,7 +400,8 @@ public:
     TypeId Type() const;
     size_t Size() const;
 
-    void Append(Value value);
+    void Append(Value);
+    void Reserve(size_t);
 
     ColumnEnum& Values();
     const ColumnEnum& Values() const;
