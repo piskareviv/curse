@@ -50,15 +50,10 @@ target_link_libraries(curse_core PRIVATE lz4)
 target_link_libraries(curse_core PRIVATE PkgConfig::RE2)
 target_link_libraries(curse_core PRIVATE absl::flat_hash_map)
   
-add_executable(curse_core_test
-  test/test_types.cpp
-  test/test_util.cpp
-  test/test_file_io.cpp
-  test/test_csv.cpp
-  test/test_convert.cpp
-  test/test_storage.cpp
-  test/test_lz4.cpp
-)
+
+
+file(GLOB TEST_SOURCES "./test/*.cpp")
+add_executable(curse_core_test ${TEST_SOURCES})
 
 
 target_link_libraries(curse_core_test PUBLIC curse_core GTest::gtest_main)
