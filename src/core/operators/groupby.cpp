@@ -1,12 +1,21 @@
 #include "groupby.hpp"
 
+#include <sys/types.h>
+
+#include <cstdint>
+#include <cstring>
 #include <deque>
 #include <functional>
 #include <optional>
 #include <type_traits>
+#include <utility>
+#include <variant>
 
 #include "absl/container/flat_hash_map.h"
+#include "dependencies/vince/csv.hpp"
 #include "src/core/aggregators.hpp"
+#include "src/core/assert.hpp"
+#include "src/core/convert.hpp"
 #include "src/core/types.hpp"
 #include "src/core/util.hpp"
 
@@ -66,6 +75,23 @@ public:
     }
 
 private:
+    struct BytesHasher {
+        size_t operator()(std::span<const char> sp) const {
+            const uint64_t k = sizeof(uint64_t);
+            ENSURE(sp.size() % k == 0);
+
+            uint64_t res = 0;
+            uint64_t n = sp.size() / k;
+            for (uint64_t i = 0; i < n; i += 1) {
+                uint64_t val = 0;
+                memcpy(&val, &sp[i * k], k);
+                res = res * 2131231231231231 + val + 123 + val * val * i * i + i * i * i;
+            }
+
+            return res;
+        }
+    };
+
     template <TypeId id>
     using HashMap = absl::flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
 
@@ -74,6 +100,29 @@ private:
 
     using HashMapEnum = MakeEnum<HashMap, AllTypesIds>::T;
     using AggrVecEnum = MakeEnumAggr<AggrVec, AllAggTypes, AllTypesIds>::T;
+
+    static constexpr size_t kChunkSize = sizeof(uint64_t);
+    static constexpr size_t kMaxChunks = 8;
+
+    // use std::array<char> instead of std::vector<char> up to kBytesVector inclusive
+    static constexpr size_t kBytesVector = kMaxChunks * kChunkSize;
+
+    template <size_t n_chunks>
+    using IdBundleT =
+        std::conditional_t<n_chunks <= kMaxChunks, std::array<char, n_chunks * kChunkSize>, std::vector<char>>;
+
+    template <size_t n>
+    using Map2T = absl::flat_hash_map<IdBundleT<n>, size_t, BytesHasher>;
+
+    template <typename>
+    struct Aux;
+
+    template <size_t... inds>
+    struct Aux<std::index_sequence<inds...>> {
+        using T = std::variant<Map2T<inds>...>;
+    };
+
+    using Map2Enum = Aux<std::make_index_sequence<kMaxChunks + 2>>::T;
 
 public:
     std::unique_ptr<Batch> Next() override {
@@ -85,146 +134,187 @@ public:
         const size_t n_keys = m_key_col_inds.size();
         const size_t n_aggs = m_aggr_col_inds.size();
 
-        // use std::array<size_t, n_keys> instead of std::vector<size_t> up to kNKeysVector inclusive
-        constexpr size_t kNKeysVector = 8;
+        const std::shared_ptr<const Schema>& stream_schema = m_stream->GetSchema();
 
-        auto next = [&]<size_t NKeys> -> void {
-            const std::shared_ptr<const Schema>& stream_schema = m_stream->GetSchema();
+        size_t n_bytes = 0;
+        for (size_t ind : m_key_col_inds) {
+            TypeId id = stream_schema->Columns()[ind].type;
+            ExecFor(id, [&]<TypeId id> {
+                if constexpr (ConvertR<id>::kHasRawType) {
+                    n_bytes += sizeof(typename ConvertR<id>::RawT);
+                } else {
+                    n_bytes += sizeof(size_t);
+                }
+            });
+        }
+        size_t n_chunks = (n_bytes + (kChunkSize - 1)) / kChunkSize;
 
-            using IdBundleT = std::conditional_t<NKeys <= kNKeysVector, std::array<size_t, NKeys>, std::vector<size_t>>;
+        std::vector<HashMapEnum> maps1;
+        // absl::flat_hash_map<IdBundleT, size_t, VecHasher<size_t>> map2;
+        Map2Enum map2;
+        std::vector<AggrVecEnum> aggrs;
 
-            std::vector<HashMapEnum> maps1;
-            absl::flat_hash_map<IdBundleT, size_t, VecHasher<size_t>> map2;
-            std::vector<AggrVecEnum> aggrs;
+        size_t aggrs_rows = 0;
 
-            size_t aggrs_rows = 0;
+        if (n_chunks <= kMaxChunks) {
+            StaticFor<kMaxChunks + 1>([&](auto n) {
+                if (n_chunks == n) {
+                    map2 = Map2T<n>();
+                }
+            });
+        } else {
+            map2 = Map2T<kMaxChunks + 1>();
+        }
 
-            result.reserve(n_keys + n_aggs);
-            for (size_t i = 0; i < n_keys; i++) {
-                result.emplace_back(m_schema->Columns()[i].type);
-            }
+        result.reserve(n_keys + n_aggs);
+        for (size_t i = 0; i < n_keys; i++) {
+            result.emplace_back(m_schema->Columns()[i].type);
+        }
 
-            for (size_t ind : m_key_col_inds) {
-                ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> { maps1.push_back(HashMap<id>()); });
-            }
-            for (size_t i = 0; i < n_aggs; i++) {
-                size_t ind = m_aggr_col_inds[i];
-                ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> {
-                    ExecFor(m_params[i].tp, [&]<AggType tp> { aggrs.push_back(AggrVec<tp, id>()); });
-                });
-            }
+        for (size_t ind : m_key_col_inds) {
+            ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> { maps1.push_back(HashMap<id>()); });
+        }
+        for (size_t i = 0; i < n_aggs; i++) {
+            size_t ind = m_aggr_col_inds[i];
+            ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> {
+                ExecFor(m_params[i].tp, [&]<AggType tp> { aggrs.push_back(AggrVec<tp, id>()); });
+            });
+        }
 
-            auto extend_aggrs = [&](size_t lower_bound) {
-                const size_t dlt = 8;
-                while (aggrs_rows < lower_bound) {
-                    aggrs_rows += dlt;
+        auto extend_aggrs = [&](size_t lower_bound) {
+            const size_t dlt = 32;
+            while (aggrs_rows < lower_bound) {
+                aggrs_rows += dlt;
 
-                    for (size_t i = 0; i < n_aggs; i++) {
-                        size_t ind = m_aggr_col_inds[i];
-                        ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> {
-                            ExecFor(m_params[i].tp, [&]<AggType tp> {
-                                AggrVec<tp, id>& aggr = std::get<AggrVec<tp, id>>(aggrs[i]);
-                                for (size_t j = 0; j < dlt; j++) {
-                                    aggr.push_back(AggregatorImpl<tp, id>());
-                                }
-                            });
+                for (size_t i = 0; i < n_aggs; i++) {
+                    size_t ind = m_aggr_col_inds[i];
+                    ExecFor(stream_schema->Columns()[ind].type, [&]<TypeId id> {
+                        ExecFor(m_params[i].tp, [&]<AggType tp> {
+                            AggrVec<tp, id>& aggr = std::get<AggrVec<tp, id>>(aggrs[i]);
+                            for (size_t j = 0; j < dlt; j++) {
+                                aggr.push_back(AggregatorImpl<tp, id>());
+                            }
                         });
-                    }
+                    });
                 }
-            };
+            }
+        };
 
-            for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
-                const std::vector<Column>& cols = batch->Columns();
-                const size_t n_rows = batch->NRows();
+        for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
+            const std::vector<Column>& cols = batch->Columns();
+            const size_t n_rows = batch->NRows();
 
-                std::vector<IdBundleT> map2_keys(n_rows);
-                if constexpr (std::is_same_v<IdBundleT, std::vector<size_t>>) {
+            std::vector<std::optional<size_t>> aggrs_inds(n_rows);
+            std::vector<char> append_to_result(n_rows, 0);
+
+            auto func = [&]<size_t n> {
+                std::vector<IdBundleT<n>> map2_keys(n_rows);
+
+                Map2T<n>& mp2 = std::get<Map2T<n>>(map2);
+
+                if constexpr (n <= kMaxChunks) {
                     for (size_t i = 0; i < n_rows; i++) {
-                        map2_keys[i].resize(n_keys);
+                        map2_keys[i].fill(0);
+                    }
+                } else {
+                    for (size_t i = 0; i < n_rows; i++) {
+                        map2_keys[i].resize(n_chunks * kChunkSize, 0);
                     }
                 }
 
-                for (size_t i = 0; i < n_keys; i++) {
+                for (size_t i = 0, dlt = 0; i < n_keys; i++) {
                     std::visit(
                         [&]<TypeId id>(const ColumnT<id>& col) {
-                            HashMap<id>& map = std::get<HashMap<id>>(maps1[i]);
-                            for (size_t j = 0; j < n_rows; j++) {
-                                typename ReprType<id>::T val(col[j]);
-                                auto [it, inserted] = map.insert({std::move(val), map.size()});
-                                map2_keys[j][i] = it->second;
+                            if constexpr (ConvertR<id>::kHasRawType) {
+                                constexpr size_t kBytes = sizeof(typename ConvertR<id>::RawT);
+                                for (size_t j = 0; j < n_rows; j++) {
+                                    typename ConvertR<id>::RawT key = ConvertR<id>::ToRaw(col[j]);
+                                    memcpy(&map2_keys[j][dlt], &key, kBytes);
+                                }
+                                dlt += kBytes;
+                            } else {
+                                constexpr size_t kBytes = sizeof(size_t);
+
+                                HashMap<id>& map = std::get<HashMap<id>>(maps1[i]);
+                                for (size_t j = 0; j < n_rows; j++) {
+                                    typename ReprType<id>::T val(col[j]);
+                                    auto [it, inserted] = map.insert({std::move(val), map.size()});
+                                    size_t key = it->second;
+                                    memcpy(&map2_keys[j][dlt], &key, kBytes);
+                                }
+
+                                dlt += kBytes;
                             }
                         },
                         cols[m_key_col_inds[i]].Values());
                 }
 
-                std::vector<std::optional<size_t>> aggrs_inds(n_rows);
-                std::vector<char> append_to_result(n_rows, 0);
                 for (size_t i = 0; i < n_rows; i++) {
-                    if (!m_limit.has_value() || map2.size() < m_limit.value()) {
-                        auto [it, inserted] = map2.insert({std::move(map2_keys[i]), map2.size()});
+                    if (!m_limit.has_value() || mp2.size() < m_limit.value()) {
+                        auto [it, inserted] = mp2.insert({std::move(map2_keys[i]), mp2.size()});
                         if (inserted) {
-                            extend_aggrs(map2.size());
+                            extend_aggrs(mp2.size());
                             append_to_result[i] = 1;
                         }
                         aggrs_inds[i] = it->second;
                     } else {
-                        auto it = map2.find(map2_keys[i]);
-                        if (it != map2.end()) {
+                        auto it = mp2.find(map2_keys[i]);
+                        if (it != mp2.end()) {
                             aggrs_inds[i] = it->second;
                         }
                     }
                 }
+            };
 
-                for (size_t i = 0; i < n_aggs; i++) {
-                    std::visit(
-                        [&]<AggType tp, TypeId id>(AggrVec<tp, id>& aggr) {
-                            const ColumnT<id>& col = std::get<ColumnT<id>>(cols[m_aggr_col_inds[i]].Values());
-                            for (size_t j = 0; j < n_rows; j++) {
-                                auto ind = aggrs_inds[j];
-                                if (ind.has_value()) {
-                                    aggr[ind.value()].Update(col[j]);
-                                }
-                            }
-                        },
-                        aggrs[i]);
-                }
-                for (size_t i = 0; i < n_keys; i++) {
-                    std::visit(
-                        [&]<TypeId id>(const ColumnT<id>& col) {
-                            ColumnT<id>& res_col = std::get<ColumnT<id>>(result[i].Values());
-                            for (size_t j = 0; j < n_rows; j++) {
-                                if (append_to_result[j]) {
-                                    res_col.Append(col[j]);
-                                }
-                            }
-                        },
-                        cols[m_key_col_inds[i]].Values());
-                }
+            if (n_chunks <= kMaxChunks) {
+                StaticFor<kMaxChunks + 1>([&](auto n) {
+                    if (n_chunks == n) {
+                        func.template operator()<n>();
+                    }
+                });
+            } else {
+                func.template operator()<kMaxChunks + 1>();
             }
-
-            const size_t n_result_rows = map2.size();
 
             for (size_t i = 0; i < n_aggs; i++) {
                 std::visit(
                     [&]<AggType tp, TypeId id>(AggrVec<tp, id>& aggr) {
-                        ColumnT<AggregatorImpl<tp, id>::kResultTypeId> col;
-                        for (size_t j = 0; j < n_result_rows; j++) {
-                            col.Append(aggr[j].Get());
+                        const ColumnT<id>& col = std::get<ColumnT<id>>(cols[m_aggr_col_inds[i]].Values());
+                        for (size_t j = 0; j < n_rows; j++) {
+                            auto ind = aggrs_inds[j];
+                            if (ind.has_value()) {
+                                aggr[ind.value()].Update(col[j]);
+                            }
                         }
-                        result.emplace_back(std::move(col));
                     },
                     aggrs[i]);
             }
-        };
+            for (size_t i = 0; i < n_keys; i++) {
+                std::visit(
+                    [&]<TypeId id>(const ColumnT<id>& col) {
+                        ColumnT<id>& res_col = std::get<ColumnT<id>>(result[i].Values());
+                        for (size_t j = 0; j < n_rows; j++) {
+                            if (append_to_result[j]) {
+                                res_col.Append(col[j]);
+                            }
+                        }
+                    },
+                    cols[m_key_col_inds[i]].Values());
+            }
+        }
 
-        if (n_keys <= kNKeysVector) {
-            StaticFor<kNKeysVector + 1>([&](auto n) {
-                if (n_keys == n) {
-                    next.template operator()<n>();
-                }
-            });
-        } else {
-            next.template operator()<kNKeysVector + 1>();
+        const size_t n_result_rows = std::visit([&](const auto& m) { return m.size(); }, map2);
+
+        for (size_t i = 0; i < n_aggs; i++) {
+            std::visit(
+                [&]<AggType tp, TypeId id>(AggrVec<tp, id>& aggr) {
+                    ColumnT<AggregatorImpl<tp, id>::kResultTypeId> col;
+                    for (size_t j = 0; j < n_result_rows; j++) {
+                        col.Append(aggr[j].Get());
+                    }
+                    result.emplace_back(std::move(col));
+                },
+                aggrs[i]);
         }
 
         m_stream = nullptr;

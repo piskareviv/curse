@@ -1,4 +1,6 @@
+#include <cstdint>
 #include <memory>
+#include <random>
 #include <sstream>
 
 #include "gtest/gtest.h"
@@ -465,4 +467,159 @@ TEST(Operators_GroupBy, ManyAggregatorsDifferentInputTypes) {
         "bob,20,2.5,2000,0,2,9,4,5,900,450,90000,45000,40000,50000,1\n";
 
     ASSERT_EQ(SortedLines(sout.str()), SortedLines(expected));
+}
+
+TEST(Operators_GroupBy, RandomInt64Keys_FromKeyPool) {
+    constexpr int kNumRows = 10000;
+    constexpr int kNumDistinctKeys = 100;
+    constexpr int kMaxKeys = 20;
+    constexpr uint32_t kSeed = 1337;
+
+    std::mt19937_64 rng(kSeed);
+
+    std::uniform_int_distribution<int> key_pool_dist(0, kNumDistinctKeys - 1);
+    std::uniform_int_distribution<int64_t> value_dist(std::numeric_limits<int64_t>::min() / kNumRows / 2,
+                                                      std::numeric_limits<int64_t>::max() / kNumRows / 2);
+
+    for (int num_keys = 0; num_keys <= kMaxKeys; ++num_keys) {
+        SCOPED_TRACE("num_keys=" + std::to_string(num_keys));
+
+        // Pre-generate DISTINCT key bundles
+        std::vector<std::vector<int64_t>> key_pool(kNumDistinctKeys);
+
+        std::uniform_int_distribution<int64_t> key_value_dist(std::numeric_limits<int64_t>::min() / kNumRows / 2,
+                                                              std::numeric_limits<int64_t>::max() / kNumRows / 2);
+
+        for (int i = 0; i < kNumDistinctKeys; ++i) {
+            key_pool[i].resize(num_keys);
+            for (int k = 0; k < num_keys; ++k) {
+                key_pool[i][k] = key_value_dist(rng);
+            }
+        }
+
+        std::ostringstream data;
+
+        struct Agg {
+            __int128 sum = 0;
+            int64_t cnt = 0;
+            int64_t mn = std::numeric_limits<int64_t>::max();
+            int64_t mx = std::numeric_limits<int64_t>::min();
+        };
+
+        std::unordered_map<std::string, Agg> expected;
+
+        for (int i = 0; i < kNumRows; ++i) {
+            int key_id = key_pool_dist(rng);
+            int64_t v = value_dist(rng);
+
+            const auto& key_bundle = key_pool[key_id];
+
+            std::ostringstream row;
+            std::ostringstream key_str;
+
+            for (int k = 0; k < num_keys; ++k) {
+                if (k != 0) {
+                    row << ",";
+                    key_str << "|";
+                }
+                row << key_bundle[k];
+                key_str << key_bundle[k];
+            }
+
+            if (num_keys != 0) {
+                row << ",";
+            }
+            row << v << "\n";
+            data << row.str();
+
+            std::string key = key_str.str();
+
+            auto& st = expected[key];
+            st.cnt++;
+            st.sum += v;
+            st.mn = std::min(st.mn, v);
+            st.mx = std::max(st.mx, v);
+        }
+
+        std::vector<Schema::ColumnInfo> columns;
+        for (int k = 0; k < num_keys; ++k) {
+            columns.push_back({"k" + std::to_string(k), TypeId::Int64});
+        }
+        columns.push_back({"value", TypeId::Int64});
+
+        const Schema schema(columns);
+
+        // std::cerr << data.str() << "\n";
+        auto sin = std::make_unique<std::istringstream>(data.str());
+        auto reader = std::make_unique<CsvReader>(std::move(sin), schema, 10000);
+
+        std::vector<std::string> group_cols;
+        for (int k = 0; k < num_keys; ++k) {
+            group_cols.push_back("k" + std::to_string(k));
+        }
+
+        GroupByOperator groupby(group_cols, {
+                                                {.tp = AggType::Count, .inp_col = "value", .out_col = "cnt"},
+                                                {.tp = AggType::Sum, .inp_col = "value", .out_col = "sum"},
+                                                {.tp = AggType::Min, .inp_col = "value", .out_col = "min"},
+                                                {.tp = AggType::Max, .inp_col = "value", .out_col = "max"},
+                                            });
+
+        auto stream = std::move(reader) >= groupby;
+
+        std::ostringstream sout;
+        WriteAsCsv(sout, std::move(stream));
+
+        std::unordered_map<std::string, Agg> actual;
+
+        std::istringstream in(sout.str());
+        std::string line;
+
+        while (std::getline(in, line)) {
+            if (line.empty()) {
+                continue;
+            }
+
+            std::stringstream ss(line);
+            std::vector<std::string> cols;
+            std::string cell;
+
+            while (std::getline(ss, cell, ',')) {
+                cols.push_back(cell);
+            }
+
+            ASSERT_EQ(cols.size(), static_cast<size_t>(num_keys + 4));
+
+            std::ostringstream key_str;
+            for (int k = 0; k < num_keys; ++k) {
+                if (k != 0) {
+                    key_str << "|";
+                }
+                key_str << cols[k];
+            }
+
+            const std::string key = key_str.str();
+
+            Agg a;
+            a.cnt = std::stoll(cols[num_keys + 0]);
+            a.sum = static_cast<__int128>(std::stoll(cols[num_keys + 1]));
+            a.mn = std::stoll(cols[num_keys + 2]);
+            a.mx = std::stoll(cols[num_keys + 3]);
+
+            actual[key] = a;
+        }
+
+        ASSERT_EQ(actual.size(), expected.size());
+
+        for (const auto& [k, e] : expected) {
+            ASSERT_TRUE(actual.count(k)) << "Missing key";
+
+            const auto& a = actual.at(k);
+
+            ASSERT_EQ(a.cnt, e.cnt);
+            ASSERT_EQ(a.sum, e.sum);
+            ASSERT_EQ(a.mn, e.mn);
+            ASSERT_EQ(a.mx, e.mx);
+        }
+    }
 }

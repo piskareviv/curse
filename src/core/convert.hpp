@@ -20,10 +20,13 @@
 namespace curse {
 
 template <TypeId>
-struct ConvertR;
+struct ConvertR {
+    static const bool kHasRawType = false;
+};
 
 template <>
 struct ConvertR<TypeId::Date> {
+    static const bool kHasRawType = true;
     using T = ReprType<TypeId::Date>::T;
     using RawT = int32_t;
 
@@ -38,6 +41,7 @@ struct ConvertR<TypeId::Date> {
 
 template <>
 struct ConvertR<TypeId::Timestamp> {
+    static const bool kHasRawType = true;
     using T = ReprType<TypeId::Timestamp>::T;
     using RawT = int64_t;
 
@@ -54,6 +58,8 @@ template <TypeId id>
     requires(id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||
              id == TypeId::Int128 || id == TypeId::Char || id == TypeId::Float64)
 struct ConvertR<id> {
+    static const bool kHasRawType = true;
+
     using T = ReprType<id>::T;
     using RawT = T;
 
