@@ -11,3 +11,13 @@ set(CMAKE_CXX_FLAGS_ASAN "-O0 -g -fsanitize=address,undefined,bounds -fno-saniti
     FORCE)
 
 
+set(CMAKE_CXX_FLAGS_TSAN "-g -fsanitize=thread -fno-sanitize-recover=all"
+  CACHE STRING "Compiler flags in tsan build"
+  FORCE)
+
+set(CMAKE_CXX_FLAGS_MSAN "-g -fsanitize=memory -fsanitize-recover=all"
+  CACHE STRING "Compiler flags in msan build"
+  FORCE)
+
+set(CMAKE_CXX_FLAGS_COVERAGE "${CMAKE_CXX_FLAGS_ASAN} -fprofile-instr-generate -fcoverage-mapping")
+
