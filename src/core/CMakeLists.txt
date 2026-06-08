@@ -53,7 +53,8 @@ target_link_libraries(curse_core PRIVATE absl::flat_hash_map)
 
 
 file(GLOB TEST_SOURCES "./test/*.cpp")
-add_executable(curse_core_test ${TEST_SOURCES})
+file(GLOB TEST_OPERATORS_SOURCES "./operators/test/*.cpp")
+add_executable(curse_core_test ${TEST_SOURCES} ${TEST_OPERATORS_SOURCES})
 
 
 target_link_libraries(curse_core_test PUBLIC curse_core GTest::gtest_main)
