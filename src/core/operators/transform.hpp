@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -80,7 +81,7 @@ public:
     static ColumnOperation LogicalNot(std::string col, std::string out_col);
 
     static ColumnOperation ArithmeticOp(std::string col1, std::string col2, std::string out_col, Arithmetic op,
-                                        TypeId out_type);
+                                        std::optional<TypeId> out_type = std::nullopt);
 
     // dst[i] = col[i] ? col1[i] : col2[i]
     static ColumnOperation Select(std::string mask_col, std::string col1, std::string col2, std::string out_col);

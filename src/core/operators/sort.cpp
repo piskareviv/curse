@@ -35,17 +35,18 @@ public:
     }
 
 private:
-    void SortColumns(std::vector<Column>& vec) {
+    void SortColumns(std::vector<Column> &vec) {
         if (vec.empty()) {
             return;
         }
 
         std::vector<size_t> inds(vec[0].Size());
         std::iota(inds.begin(), inds.end(), static_cast<size_t>(0));
+
         for (size_t i = 0; i < m_params.size(); i++) {
             size_t ind = m_col_inds.rbegin()[i];
-            const auto& [col_name, rev] = m_params.rbegin()[i];
-            std::visit([&]<TypeId id>(const ColumnT<id>& col) { col.StableArgsort(inds, rev); }, vec[ind].Values());
+            const auto &[col_name, rev] = m_params.rbegin()[i];
+            std::visit([&]<TypeId id>(const ColumnT<id> &col) { col.StableArgsort(inds, rev); }, vec[ind].Values());
         }
 
         if (m_limit.has_value()) {
@@ -53,7 +54,7 @@ private:
         }
 
         for (size_t i = 0; i < vec.size(); i++) {
-            std::visit([&]<TypeId id>(ColumnT<id>& col) { col = col.Select(inds); }, vec[i].Values());
+            std::visit([&]<TypeId id>(ColumnT<id> &col) { col = col.Select(inds); }, vec[i].Values());
         }
     }
 
@@ -75,17 +76,17 @@ public:
             size_t n_rows = batch->NRows();
             std::vector<Column> cols = std::move(*batch).ExtractColumns();
 
-            // hadle big batches
             if (m_limit.has_value()) {
-                size_t stride = std::max<size_t>(4096, m_limit.value());  // !!!! MAGIC CONSTANT
+                // to handle big batches
+                size_t stride = std::max<size_t>(4096, m_limit.value());
+
                 for (size_t i = 0; i < n_rows;) {
                     size_t dlt = std::min(stride, n_rows - i);
 
                     for (size_t j = 0; j < n_cols; j++) {
                         std::visit(
-                            [&]<TypeId id>(ColumnT<id>& col) {
-                                auto& cl = std::get<ColumnT<id>>(cols[j].Values());
-                                // col.Append(std::span(cl.values).subspan(i, dlt));
+                            [&]<TypeId id>(ColumnT<id> &col) {
+                                auto &cl = std::get<ColumnT<id>>(cols[j].Values());
                                 for (size_t k = 0; k < dlt; k++) {
                                     col.Append(cl[i + k]);
                                 }
@@ -94,13 +95,12 @@ public:
                     }
 
                     SortColumns(vec);
-
                     i += dlt;
                 }
             } else {
                 for (size_t i = 0; i < n_cols; i++) {
                     std::visit(
-                        [&]<TypeId id>(ColumnT<id>& col) { col.Append(std::get<ColumnT<id>>(cols[i].Values())); },
+                        [&]<TypeId id>(ColumnT<id> &col) { col.Append(std::get<ColumnT<id>>(cols[i].Values())); },
                         vec[i].Values());
                 }
             }

@@ -10,8 +10,6 @@ private:
     std::unique_ptr<BatchStream> m_stream;
     std::shared_ptr<const Schema> m_schema;
 
-    std::shared_ptr<const std::vector<AggregationOperator::Params>> m_params;
-
     std::vector<Aggregator> m_aggs;
     std::vector<size_t> m_col_inds;
 
@@ -19,9 +17,9 @@ private:
     friend class AggregationOperator;
 
 public:
-    AggregationOperatorStream(Secret, std::shared_ptr<const std::vector<AggregationOperator::Params>> params,
+    AggregationOperatorStream(Secret, const std::shared_ptr<const std::vector<AggregationOperator::Params>>& params,
                               std::unique_ptr<BatchStream> stream)
-        : m_stream(std::move(stream)), m_params(params) {
+        : m_stream(std::move(stream)) {
 
         ENSURE(m_stream != nullptr);
 
@@ -49,18 +47,18 @@ public:
         }
 
         for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
-            for (size_t i = 0; i < m_params->size(); i++) {
+            for (size_t i = 0; i < m_col_inds.size(); i++) {
                 m_aggs[i].Update(batch->Columns()[m_col_inds[i]]);
             }
         }
 
         std::vector<Column> result;
-        for (size_t i = 0; i < m_params->size(); i++) {
+        for (size_t i = 0; i < m_col_inds.size(); i++) {
             Value v = m_aggs[i].Get();
             result.emplace_back(v);
         }
-        m_stream = nullptr;
 
+        m_stream = nullptr;
         return std::make_unique<Batch>(m_schema, result);
     }
 

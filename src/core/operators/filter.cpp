@@ -9,19 +9,18 @@ private:
     std::unique_ptr<BatchStream> m_stream;
     std::shared_ptr<const Schema> m_schema;
 
-    std::string m_filt_col;
     size_t m_col_ind;
 
     struct Secret {};
     friend class FilterOperator;
 
 public:
-    FilterOperatorStream(Secret, std::string col, std::unique_ptr<BatchStream> stream)
-        : m_stream(std::move(stream)), m_filt_col(std::move(col)), m_col_ind(0) {
+    FilterOperatorStream(Secret, const std::string& col, std::unique_ptr<BatchStream> stream)
+        : m_stream(std::move(stream)), m_col_ind(0) {
 
         ENSURE(m_stream != nullptr);
         m_schema = m_stream->GetSchema();
-        m_col_ind = m_schema->IndexOf(m_filt_col);
+        m_col_ind = m_schema->IndexOf(col);
         TypeId id = m_schema->Columns()[m_col_ind].type;
 
         ENSURE_MSG(id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||

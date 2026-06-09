@@ -1,5 +1,7 @@
 #include "skip.hpp"
 
+#include <numeric>
+
 namespace curse {
 
 SkipOperator::SkipOperator(size_t n_rows_to_skip) : m_to_skip(n_rows_to_skip) {}
@@ -38,12 +40,12 @@ public:
         size_t to_skip = std::min(n_rows, m_rows_left);
         m_rows_left -= to_skip;
 
-        std::vector<char> filt(n_rows, 1);
-        std::fill(filt.begin(), filt.begin() + to_skip, 0);
+        std::vector<size_t> inds(n_rows - to_skip);
+        std::iota(inds.begin(), inds.end(), static_cast<size_t>(to_skip));
 
         std::vector<Column> result;
         for (size_t i = 0; i < n_cols; i++) {
-            std::visit([&]<TypeId id>(const ColumnT<id>& col) { result.emplace_back(col.Filter(filt)); },
+            std::visit([&]<TypeId id>(const ColumnT<id>& col) { result.emplace_back(col.Select(inds)); },
                        batch->Columns()[i].Values());
         }
 

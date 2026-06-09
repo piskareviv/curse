@@ -267,10 +267,8 @@ private:
         template <AggType... tps, TypeId... ids>
         struct CartProd<AggTypeHolder<tps...>, TypeIdHolder<ids...>> {
         private:
-            using TpIdHolder = TypeIdHolder<ids...>;
-
             template <AggType tp>
-            using Aux = CartProd<AggTypeHolder<tp>, TpIdHolder>::T;
+            using Aux = CartProd<AggTypeHolder<tp>, TypeIdHolder<ids...>>::T;
 
         public:
             using T = AuxPairHolderConcatMany<Aux<tps>...>::T;

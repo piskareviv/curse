@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <variant>
@@ -55,6 +56,7 @@ Transform Transform::LogicalNot() {
         [=](TypeId) { return TypeId::Int8; });
 }
 
+// utf8 len
 Transform Transform::Strlen() {
     return Transform(
         [=](const Column& col) {
@@ -129,6 +131,7 @@ Transform Transform::Compare(ComparisonType how, Value value) {
 
 Transform Transform::RegexpSearch(std::string pattern) {
     std::shared_ptr<const re2::RE2> re = std::make_shared<re2::RE2>(pattern);
+    ENSURE_MSG(re->ok(), "invalid regex");
 
     return Transform(
         [=](const Column& col) {
@@ -258,7 +261,7 @@ ColumnOperation ColumnOperation::LogicalNot(std::string col, std::string out_col
 }
 
 ColumnOperation ColumnOperation::ArithmeticOp(std::string col1, std::string col2, std::string out_col, Arithmetic op,
-                                              TypeId out_type) {
+                                              std::optional<TypeId> out_type_opt) {
     std::function<Column(std::span<std::reference_wrapper<const Column>>)> trs =
         [=](std::span<std::reference_wrapper<const Column>> sp) -> Column {
         ENSURE(sp.size() == 2);
@@ -267,6 +270,15 @@ ColumnOperation ColumnOperation::ArithmeticOp(std::string col1, std::string col2
 
         size_t sz = col1.Size();
         ENSURE(col2.Size() == sz);
+
+        TypeId out_type;
+        if (out_type_opt.has_value()) {
+            out_type = out_type_opt.value();
+        } else {
+            ENSURE_MSG(col1.Type() == col2.Type(),
+                       "can't do arithmetic on columns of different types uless output type is provided");
+            out_type = col1.Type();
+        }
 
         Column col(out_type);
 
