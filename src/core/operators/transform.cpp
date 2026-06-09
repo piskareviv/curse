@@ -374,7 +374,7 @@ ColumnOperation ColumnOperation::SetContains(std::vector<std::string> inp_cols, 
 
         for (std::unique_ptr<Batch> batch; (batch = stream->Next());) {
             const size_t n_rows = batch->NRows();
-            std::vector<Column> cols = batch->ExtractColumns();
+            std::vector<Column> cols = std::move(*batch).ExtractColumns();
 
             std::vector<std::vector<size_t>> map2_keys(n_rows);
             for (size_t i = 0; i < n_rows; i++) {
@@ -503,7 +503,7 @@ public:
             return nullptr;
         }
 
-        std::vector<Column> cols = batch->ExtractColumns();
+        std::vector<Column> cols = std::move(*batch).ExtractColumns();
         std::vector<std::reference_wrapper<const Column>> vec;
 
         for (size_t i = 0; i < m_ops.size(); i++) {

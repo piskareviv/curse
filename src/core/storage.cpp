@@ -157,7 +157,7 @@ void WriteSchema(FileWriter &writer, const Schema &schema) {
 }
 
 void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch) {
-    std::vector<Column> cols = batch->ExtractColumns();
+    std::vector<Column> cols = std::move(*batch).ExtractColumns();
     size_t n_cols = cols.size();
 
     std::vector<std::vector<char>> vec(n_cols);

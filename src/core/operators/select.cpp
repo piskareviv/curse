@@ -49,7 +49,7 @@ public:
             return nullptr;
         }
 
-        std::vector<Column> cols = batch->ExtractColumns();
+        std::vector<Column> cols = std::move(*batch).ExtractColumns();
 
         std::vector<Column> result;
         result.reserve(m_cols_to_select.size());

@@ -82,7 +82,7 @@ Batch::Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> co
     }
 }
 
-std::vector<Column> Batch::ExtractColumns() {
+std::vector<Column> Batch::ExtractColumns() && {
     m_schema = nullptr;
     return std::exchange(m_columns, std::vector<Column>());
 }

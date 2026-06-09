@@ -73,7 +73,7 @@ public:
 
         for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
             size_t n_rows = batch->NRows();
-            std::vector<Column> cols = batch->ExtractColumns();
+            std::vector<Column> cols = std::move(*batch).ExtractColumns();
 
             // hadle big batches
             if (m_limit.has_value()) {

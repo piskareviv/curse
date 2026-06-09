@@ -189,12 +189,6 @@ public:
     }
 };
 
-struct ValueHasher {
-    size_t operator()(const Value& value) const {
-        return std::visit([&]<TypeId id>(const ValueT<id>& vl) { return ValueT_Hasher<id>()(vl); }, value.value);
-    }
-};
-
 template <TypeId id>
 struct ColumnT {
     using T = ReprType<id>::T;
@@ -231,6 +225,9 @@ public:
         m_values.clear();
     }
 
+    std::vector<T> ToVector() && {
+        return std::move(m_values);
+    }
     std::vector<T> ToVector() const {
         return std::vector<T>(m_values.begin(), m_values.end());
     }
@@ -266,6 +263,7 @@ public:
 
     ColumnT Select(std::span<const size_t> inds) const {
         ColumnT col;
+        col.Reserve(inds.size());
         for (size_t i = 0; i < inds.size(); i++) {
             col.Append(m_values[inds[i]]);
         }
@@ -329,8 +327,10 @@ public:
         }
         return vec;
     }
+
     static ColumnT FromVector(const std::vector<T>& vec) {
         ColumnT col;
+        col.Reserve(vec.size());
         for (auto& val : vec) {
             col.Append(val);
         }
@@ -364,6 +364,7 @@ public:
 
     ColumnT Select(std::span<const size_t> inds) const {
         ColumnT col;
+        col.Reserve(inds.size());
         for (size_t i = 0; i < inds.size(); i++) {
             col.Append((*this)[inds[i]]);
         }
@@ -450,7 +451,7 @@ private:
 public:
     Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> columns);
 
-    std::vector<Column> ExtractColumns();
+    std::vector<Column> ExtractColumns() &&;
 
     size_t NRows() const;
     const std::vector<Column>& Columns() const;
