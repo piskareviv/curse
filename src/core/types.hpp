@@ -9,12 +9,11 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <variant>
 #include <vector>
 
-#include "src/core/assert.hpp"
+#include "src/util/assert.hpp"
 
 namespace curse {
 

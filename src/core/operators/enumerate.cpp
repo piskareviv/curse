@@ -1,7 +1,7 @@
 #include "enumerate.hpp"
 
-#include "src/core/assert.hpp"
 #include "src/core/types.hpp"
+#include "src/util/assert.hpp"
 
 namespace curse {
 

@@ -1,4 +1,4 @@
-#include "src/core/thread_pool.hpp"
+#include "thread_pool.hpp"
 
 #include <cstddef>
 #include <functional>

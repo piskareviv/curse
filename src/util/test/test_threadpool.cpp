@@ -1,7 +1,7 @@
 #include <future>
 
 #include "gtest/gtest.h"
-#include "src/core/thread_pool.hpp"
+#include "src/util/thread_pool.hpp"
 
 using namespace curse;  // NOLINT
 

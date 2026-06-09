@@ -1,4 +1,4 @@
-#include "src/core/storage.hpp"
+#include "storage.hpp"
 
 #include <array>
 #include <cstddef>
@@ -7,14 +7,14 @@
 #include <memory>
 #include <vector>
 
-#include "src/core/assert.hpp"
 #include "src/core/constants.hpp"
 #include "src/core/convert.hpp"
 #include "src/core/file_io.hpp"
-#include "src/core/lz4.hpp"
-#include "src/core/thread_pool.hpp"
 #include "src/core/types.hpp"
-#include "src/core/util.hpp"
+#include "src/util/assert.hpp"
+#include "src/util/lz4.hpp"
+#include "src/util/thread_pool.hpp"
+#include "src/util/util.hpp"
 
 namespace curse {
 

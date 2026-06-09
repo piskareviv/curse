@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "src/core/lz4.hpp"
+#include "src/util/lz4.hpp"
 
 std::vector<char> Compress(std::span<const char> span) {
     std::vector<char> vec;

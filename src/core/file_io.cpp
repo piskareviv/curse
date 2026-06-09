@@ -1,6 +1,6 @@
 #include "src/core/file_io.hpp"
 
-#include "src/core/assert.hpp"
+#include "src/util/assert.hpp"
 
 namespace curse {
 

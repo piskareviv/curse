@@ -4,26 +4,19 @@ add_library(curse_core
   file_io.cpp
   csv.cpp
   storage.cpp
-  lz4.cpp
-  thread_pool.cpp
   aggregators.cpp
 
   #############
   
   types.hpp
-  assert.hpp
   csv.hpp
   file_io.hpp
-  util.hpp
   csv.hpp
   convert.hpp
   storage.hpp
   constants.hpp
-  lz4.hpp
   operators.hpp
   aggregators.hpp
-  thread_pool.hpp
-  hash.hpp
 
 
   ############# 
@@ -51,9 +44,10 @@ add_library(curse_core
   
 target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})
 
-target_link_libraries(curse_core PRIVATE lz4)  
+target_link_libraries(curse_core PUBLIC curse_util)  
 target_link_libraries(curse_core PRIVATE PkgConfig::RE2)
 target_link_libraries(curse_core PRIVATE absl::flat_hash_map)
+
   
 
 

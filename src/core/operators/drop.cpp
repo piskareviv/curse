@@ -4,8 +4,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "src/core/assert.hpp"
 #include "src/core/types.hpp"
+#include "src/util/assert.hpp"
 
 namespace curse {
 

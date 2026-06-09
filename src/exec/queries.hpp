@@ -7,7 +7,6 @@
 #include <memory>
 #include <string>
 
-#include "src/core/assert.hpp"
 #include "src/core/convert.hpp"
 #include "src/core/csv.hpp"
 #include "src/core/operators.hpp"
@@ -18,6 +17,7 @@
 #include "src/core/storage.hpp"
 #include "src/core/types.hpp"
 #include "src/exec/hits_schema.hpp"
+#include "src/util/assert.hpp"
 
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT

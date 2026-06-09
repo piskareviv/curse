@@ -1,11 +1,10 @@
-#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <limits>
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "src/core/util.hpp"
+#include "src/util/util.hpp"
 
 TEST(Concat, ItWorks) {
     std::vector<int> a = curse::Concat(std::vector<int>{1, 2}, std::vector<int>{3, 4, 5, 6});

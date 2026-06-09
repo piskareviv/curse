@@ -14,8 +14,8 @@
 
 #include "dependencies/vince/csv.hpp"
 #include "src/core/convert.hpp"
-#include "src/core/thread_pool.hpp"
 #include "src/core/types.hpp"
+#include "src/util/thread_pool.hpp"
 
 namespace curse {
 

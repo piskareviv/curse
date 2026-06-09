@@ -1,3 +1,4 @@
 add_subdirectory(aux)
+add_subdirectory(util)
 add_subdirectory(core)
 add_subdirectory(exec)

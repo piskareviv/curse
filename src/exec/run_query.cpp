@@ -3,10 +3,10 @@
 #include <iostream>
 #include <memory>
 
-#include "src/core/assert.hpp"
 #include "src/core/csv.hpp"
 #include "src/core/types.hpp"
 #include "src/exec/queries.hpp"
+#include "src/util/assert.hpp"
 
 // часть запросов была захадкожена с помощью LLM
 std::unique_ptr<curse::BatchStream> ExecuteQuery(int id, const std::string& input_file) {

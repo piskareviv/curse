@@ -6,9 +6,9 @@
 #include <variant>
 
 #include "absl/container/flat_hash_set.h"
-#include "src/core/assert.hpp"
-#include "src/core/hash.hpp"
 #include "src/core/types.hpp"
+#include "src/util/assert.hpp"
+#include "src/util/hash.hpp"
 
 namespace curse {
 

@@ -1,8 +1,8 @@
-#include "src/core/lz4.hpp"
+#include "lz4.hpp"
 
 #include "dependencies/lz4/lz4.h"
-#include "src/core/assert.hpp"
-#include "src/core/util.hpp"
+#include "src/util/assert.hpp"
+#include "src/util/util.hpp"
 
 namespace curse {
 

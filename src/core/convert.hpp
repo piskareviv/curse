@@ -13,9 +13,9 @@
 #include <variant>
 #include <vector>
 
-#include "src/core/assert.hpp"
 #include "src/core/types.hpp"
-#include "src/core/util.hpp"
+#include "src/util/assert.hpp"
+#include "src/util/util.hpp"
 
 namespace curse {
 

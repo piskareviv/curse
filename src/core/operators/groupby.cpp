@@ -16,11 +16,11 @@
 
 #include "dependencies/gtl/include/gtl/phmap.hpp"
 #include "src/core/aggregators.hpp"
-#include "src/core/assert.hpp"
 #include "src/core/convert.hpp"
-#include "src/core/hash.hpp"
 #include "src/core/types.hpp"
-#include "src/core/util.hpp"
+#include "src/util/assert.hpp"
+#include "src/util/hash.hpp"
+#include "src/util/util.hpp"
 
 namespace curse {
 

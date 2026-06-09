@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "src/core/assert.hpp"
+#include "src/util/assert.hpp"
 
 TEST(MyAssert, ItWorks) {
     ENSURE(true);

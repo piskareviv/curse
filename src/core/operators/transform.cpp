@@ -12,10 +12,10 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "re2/re2.h"
-#include "src/core/assert.hpp"
-#include "src/core/hash.hpp"
 #include "src/core/types.hpp"
-#include "src/core/util.hpp"
+#include "src/util/assert.hpp"
+#include "src/util/hash.hpp"
+#include "src/util/util.hpp"
 
 namespace curse {
 

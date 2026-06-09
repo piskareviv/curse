@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "src/core/assert.hpp"
+#include "src/util/assert.hpp"
 
 namespace curse {
 
