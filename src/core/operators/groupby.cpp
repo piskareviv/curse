@@ -81,10 +81,10 @@ private:
         template <size_t sz>
         size_t operator()(const std::array<char, sz>& ar) const {
             const uint64_t k = sizeof(uint64_t);
-            static_assert(ar.size() % k == 0);
+            static_assert(sz % k == 0);
 
             uint64_t res = 0;
-            uint64_t n = ar.size() / k;
+            const uint64_t n = sz / k;
             for (uint64_t i = 0; i < n; i += 1) {
                 uint64_t val = 0;
                 memcpy(&val, &ar[i * k], k);
