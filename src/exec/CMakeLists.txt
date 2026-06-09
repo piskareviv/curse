@@ -20,8 +20,12 @@ add_executable(convert_curse_to_csv
 target_link_libraries(convert_curse_to_csv PRIVATE curse_core)
 
 
+file(GLOB RUN_QUERY_SOURCES "./queries/*.cpp")
+
 add_executable(run_query
     run_query.cpp
+    queries.hpp
+    ${RUN_QUERY_SOURCES}
 )
 target_link_libraries(run_query PRIVATE curse_core hits_schema)
 
