@@ -5,6 +5,8 @@ add_library(curse_core
   csv.cpp
   storage.cpp
   lz4.cpp
+  thread_pool.cpp
+  aggregators.cpp
 
   #############
   
@@ -20,6 +22,9 @@ add_library(curse_core
   lz4.hpp
   operators.hpp
   aggregators.hpp
+  thread_pool.hpp
+  hash.hpp
+
 
   ############# 
 
@@ -42,9 +47,6 @@ add_library(curse_core
   operators/skip.cpp
   operators/sort.cpp
   operators/transform.cpp
-  thread_pool.hpp
-  thread_pool.cpp
-  aggregators.cpp
 )
   
 target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})

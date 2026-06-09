@@ -7,6 +7,7 @@
 
 #include "absl/container/flat_hash_set.h"
 #include "src/core/assert.hpp"
+#include "src/core/hash.hpp"
 #include "src/core/types.hpp"
 
 namespace curse {
@@ -206,7 +207,15 @@ struct AggregatorImpl<AggType::CountDistinct, id> {
     static constexpr TypeId kResultTypeId = TypeId::Int64;
     using ResultT = ReprType<kResultTypeId>::T;
 
-    absl::flat_hash_set<ValueT<id>, ValueT_Hasher<id>> set;
+private:
+    struct Hasher {
+        size_t operator()(const ValueT<id>& val) const {
+            return MyHasher()(val.value);
+        }
+    };
+
+public:
+    absl::flat_hash_set<ValueT<id>, Hasher> set;
 
     AggregatorImpl() {}
 

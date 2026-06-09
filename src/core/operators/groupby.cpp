@@ -18,6 +18,7 @@
 #include "src/core/aggregators.hpp"
 #include "src/core/assert.hpp"
 #include "src/core/convert.hpp"
+#include "src/core/hash.hpp"
 #include "src/core/types.hpp"
 #include "src/core/util.hpp"
 
@@ -77,39 +78,6 @@ public:
     }
 
 private:
-    struct BytesHasher {
-        template <size_t sz>
-        size_t operator()(const std::array<char, sz>& ar) const {
-            const uint64_t k = sizeof(uint64_t);
-            static_assert(sz % k == 0);
-
-            uint64_t res = 0;
-            const uint64_t n = sz / k;
-            for (uint64_t i = 0; i < n; i += 1) {
-                uint64_t val = 0;
-                memcpy(&val, &ar[i * k], k);
-                res = res * 2131231231231231 + val + 123 + val * val * i * i + i * i * i;
-            }
-
-            return res;
-        }
-
-        size_t operator()(std::span<const char> sp) const {
-            const uint64_t k = sizeof(uint64_t);
-            ENSURE(sp.size() % k == 0);
-
-            uint64_t res = 0;
-            uint64_t n = sp.size() / k;
-            for (uint64_t i = 0; i < n; i += 1) {
-                uint64_t val = 0;
-                memcpy(&val, &sp[i * k], k);
-                res = res * 2131231231231231 + val + 123 + val * val * i * i + i * i * i;
-            }
-
-            return res;
-        }
-    };
-
     template <TypeId id>
     using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
 
