@@ -2,6 +2,8 @@
 
 #include <sys/types.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <deque>
@@ -243,35 +245,39 @@ public:
                         map2_keys[i].resize(n_chunks * kChunkSize, 0);
                     }
                 }
+                constexpr size_t kBlockSize = 512;
+                for (size_t l = 0; l < n_rows; l += kBlockSize) {
+                    size_t r = std::min(n_rows, l + kBlockSize);
 
-                for (size_t i = 0, dlt = 0; i < n_keys; i++) {
-                    size_t ind = order[i];
-                    std::visit(
-                        [&]<TypeId id>(const ColumnT<id>& col) {
-                            if constexpr (ConvertR<id>::kHasRawType) {
-                                constexpr size_t kBytes = sizeof(typename ConvertR<id>::RawT);
+                    for (size_t i = 0, dlt = 0; i < n_keys; i++) {
+                        size_t ind = order[i];
+                        std::visit(
+                            [&]<TypeId id>(const ColumnT<id>& col) {
+                                if constexpr (ConvertR<id>::kHasRawType) {
+                                    constexpr size_t kBytes = sizeof(typename ConvertR<id>::RawT);
 
-                                for (size_t j = 0; j < n_rows; j++) {
-                                    typename ConvertR<id>::RawT key = ConvertR<id>::ToRaw(col[j]);
-                                    memcpy(&map2_keys[j][dlt], &key, kBytes);
+                                    for (size_t j = l; j < r; j++) {
+                                        typename ConvertR<id>::RawT key = ConvertR<id>::ToRaw(col[j]);
+                                        memcpy(&map2_keys[j][dlt], &key, kBytes);
+                                    }
+
+                                    dlt += kBytes;
+                                } else {
+                                    constexpr size_t kBytes = sizeof(size_t);
+
+                                    HashMap<id>& map = std::get<HashMap<id>>(maps1[ind]);
+                                    for (size_t j = l; j < r; j++) {
+                                        typename ReprType<id>::T val(col[j]);
+                                        auto [it, inserted] = map.insert({std::move(val), map.size()});
+                                        size_t key = it->second;
+                                        memcpy(&map2_keys[j][dlt], &key, kBytes);
+                                    }
+
+                                    dlt += kBytes;
                                 }
-
-                                dlt += kBytes;
-                            } else {
-                                constexpr size_t kBytes = sizeof(size_t);
-
-                                HashMap<id>& map = std::get<HashMap<id>>(maps1[ind]);
-                                for (size_t j = 0; j < n_rows; j++) {
-                                    typename ReprType<id>::T val(col[j]);
-                                    auto [it, inserted] = map.insert({std::move(val), map.size()});
-                                    size_t key = it->second;
-                                    memcpy(&map2_keys[j][dlt], &key, kBytes);
-                                }
-
-                                dlt += kBytes;
-                            }
-                        },
-                        cols[m_key_col_inds[ind]].Values());
+                            },
+                            cols[m_key_col_inds[ind]].Values());
+                    }
                 }
 
                 for (size_t i = 0; i < n_rows; i++) {
