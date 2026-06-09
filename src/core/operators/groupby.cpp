@@ -12,7 +12,7 @@
 #include <utility>
 #include <variant>
 
-#include "absl/container/flat_hash_map.h"
+#include "dependencies/gtl/include/gtl/phmap.hpp"
 #include "src/core/aggregators.hpp"
 #include "src/core/assert.hpp"
 #include "src/core/convert.hpp"
@@ -93,7 +93,7 @@ private:
     };
 
     template <TypeId id>
-    using HashMap = absl::flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
+    using HashMap = gtl::parallel_flat_hash_map<typename ReprType<id>::T, size_t, MyHasher, std::equal_to<>>;
 
     template <AggType tp, TypeId id>
     using AggrVec = std::deque<AggregatorImpl<tp, id>>;
@@ -112,7 +112,7 @@ private:
         std::conditional_t<n_chunks <= kMaxChunks, std::array<char, n_chunks * kChunkSize>, std::vector<char>>;
 
     template <size_t n>
-    using Map2T = absl::flat_hash_map<IdBundleT<n>, size_t, BytesHasher>;
+    using Map2T = gtl::parallel_flat_hash_map<IdBundleT<n>, size_t, BytesHasher>;
 
     template <typename>
     struct Aux;
