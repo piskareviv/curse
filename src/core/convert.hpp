@@ -20,12 +20,18 @@
 namespace curse {
 
 template <TypeId>
-struct ConvertR {
+struct ConvertRaw {
     static const bool kHasRawType = false;
 };
 
+template <TypeId>
+struct ConvertVal;
+
+template <typename>
+struct ConvertCol;
+
 template <>
-struct ConvertR<TypeId::Date> {
+struct ConvertRaw<TypeId::Date> {
     static const bool kHasRawType = true;
     using T = ReprType<TypeId::Date>::T;
     using RawT = int32_t;
@@ -40,7 +46,7 @@ struct ConvertR<TypeId::Date> {
 };
 
 template <>
-struct ConvertR<TypeId::Timestamp> {
+struct ConvertRaw<TypeId::Timestamp> {
     static const bool kHasRawType = true;
     using T = ReprType<TypeId::Timestamp>::T;
     using RawT = int64_t;
@@ -57,7 +63,7 @@ struct ConvertR<TypeId::Timestamp> {
 template <TypeId id>
     requires(id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||
              id == TypeId::Int128 || id == TypeId::Char || id == TypeId::Float64)
-struct ConvertR<id> {
+struct ConvertRaw<id> {
     static const bool kHasRawType = true;
 
     using T = ReprType<id>::T;
@@ -72,14 +78,12 @@ struct ConvertR<id> {
     }
 };
 
-template <typename T, typename = void>
-struct Convert;
+template <TypeId id>
+    requires(id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||
+             id == TypeId::Float64)
+struct ConvertVal<id> {
+    using T = ReprType<id>::T;
 
-template <typename T>
-    requires(std::is_same_v<T, ReprType<TypeId::Int8>::T> || std::is_same_v<T, ReprType<TypeId::Int16>::T> ||
-             std::is_same_v<T, ReprType<TypeId::Int32>::T> || std::is_same_v<T, ReprType<TypeId::Int64>::T> ||
-             std::is_same_v<T, ReprType<TypeId::Float64>::T>)
-struct Convert<T> {
     static std::string ToString(const T& value) {
         char buf[128];
         auto [ptr, err] = std::to_chars(buf, buf + sizeof(buf), value);
@@ -97,9 +101,11 @@ struct Convert<T> {
         return value;
     }
 };
-template <typename T>
-    requires(std::is_same_v<T, ReprType<TypeId::Int128>::T>)
-struct Convert<T> {
+template <TypeId id>
+    requires(id == TypeId::Int128)
+struct ConvertVal<id> {
+    using T = ReprType<id>::T;
+
     static std::string ToString(const T& value) {
         if (value == 0) {
             return "0";
@@ -117,6 +123,7 @@ struct Convert<T> {
         std::reverse(result.begin(), result.end());
         return result;
     }
+
     static T FromString(std::string_view sv) {
         ENSURE(!sv.empty());
 
@@ -144,9 +151,11 @@ struct Convert<T> {
     }
 };
 
-template <typename T>
-    requires(std::is_same_v<T, ReprType<TypeId::Date>::T>)
-struct Convert<T> {
+template <TypeId id>
+    requires(id == TypeId::Date)
+struct ConvertVal<id> {
+    using T = ReprType<id>::T;
+
     static std::string ToString(const T& value) {
         return std::format("{:%F}", value);
     }
@@ -161,9 +170,11 @@ struct Convert<T> {
     }
 };
 
-template <typename T>
-    requires(std::is_same_v<T, ReprType<TypeId::Timestamp>::T>)
-struct Convert<T> {
+template <TypeId id>
+    requires(id == TypeId::Timestamp)
+struct ConvertVal<id> {
+    using T = ReprType<id>::T;
+
     static std::string ToString(const T& value) {
         auto value_seconds = std::chrono::time_point_cast<std::chrono::seconds>(value);
         if (value == value_seconds) {
@@ -183,9 +194,11 @@ struct Convert<T> {
     }
 };
 
-template <typename T>
-    requires(std::is_same_v<T, ReprType<TypeId::Char>::T>)
-struct Convert<T> {
+template <TypeId id>
+    requires(id == TypeId::Char)
+struct ConvertVal<id> {
+    using T = ReprType<id>::T;
+
     static std::string ToString(const T& value) {
         return std::string(1, value);
     }
@@ -195,9 +208,11 @@ struct Convert<T> {
     }
 };
 
-template <typename T>
-    requires(std::is_same_v<T, ReprType<TypeId::String>::T>)
-struct Convert<T> {
+template <TypeId id>
+    requires(id == TypeId::String)
+struct ConvertVal<id> {
+    using T = ReprType<id>::T;
+
     static std::string ToString(std::string_view value) {
         return std::string(value);
     }
@@ -210,9 +225,9 @@ struct Convert<T> {
 };
 
 template <TypeId id>
-struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 ||
-                                             id == TypeId::Int64 || id == TypeId::Int128 || id == TypeId::Char ||
-                                             id == TypeId::Float64>> {
+    requires(id == TypeId::Int8 || id == TypeId::Int16 || id == TypeId::Int32 || id == TypeId::Int64 ||
+             id == TypeId::Int128 || id == TypeId::Char || id == TypeId::Float64)
+struct ConvertCol<ColumnT<id>> {
 
     using T = ReprType<id>::T;
 
@@ -225,15 +240,16 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Int8 || id == TypeId:
 };
 
 template <TypeId id>
-struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Date || id == TypeId::Timestamp>> {
+    requires(id == TypeId::Date || id == TypeId::Timestamp)
+struct ConvertCol<ColumnT<id>> {
     using T = ReprType<id>::T;
-    using RawT = ConvertR<id>::RawT;
+    using RawT = ConvertRaw<id>::RawT;
     static constexpr TypeId kId = id;
 
     static std::vector<char> ToBytes(const ColumnT<id>& col) {
         std::vector<RawT> vec(col.Size());
         for (size_t i = 0; i < col.Size(); i++) {
-            vec[i] = ConvertR<id>::ToRaw(col[i]);
+            vec[i] = ConvertRaw<id>::ToRaw(col[i]);
         }
         return VecToBytes(vec);
     }
@@ -243,14 +259,15 @@ struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::Date || id == TypeId:
         ColumnT<id> col;
         col.Reserve(vec.size());
         for (size_t i = 0; i < vec.size(); i++) {
-            col.Append(ConvertR<id>::FromRaw(vec[i]));
+            col.Append(ConvertRaw<id>::FromRaw(vec[i]));
         }
         return col;
     }
 };
 
 template <TypeId id>
-struct Convert<ColumnT<id>, std::enable_if_t<id == TypeId::String>> {
+    requires(id == TypeId::String)
+struct ConvertCol<ColumnT<id>> {
     using T = ReprType<id>::T;
     static constexpr TypeId kId = id;
 
@@ -312,15 +329,15 @@ public:
 };
 
 template <>
-struct Convert<Column> {
+struct ConvertCol<Column> {
     static std::vector<char> ToBytes(const Column& column) {
-        return std::visit([]<TypeId id>(const ColumnT<id>& col) { return Convert<ColumnT<id>>::ToBytes(col); },
+        return std::visit([]<TypeId id>(const ColumnT<id>& col) { return ConvertCol<ColumnT<id>>::ToBytes(col); },
                           column.m_column);
     }
 
     static Column FromBytes(TypeId id, std::span<const char> bytes) {
         Column col;
-        ExecFor(id, [&]<TypeId id> { col.m_column = Convert<ColumnT<id>>::FromBytes(bytes); });
+        ExecFor(id, [&]<TypeId id> { col.m_column = ConvertCol<ColumnT<id>>::FromBytes(bytes); });
         return col;
     }
 };

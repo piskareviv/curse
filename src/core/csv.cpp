@@ -86,7 +86,7 @@ std::unique_ptr<Batch> CsvReader::Next() {
                     for (size_t j = 0; j < n_rows; j++) {
                         const csv::CSVField& field = rows[j][i];
                         std::string_view token = field.get_sv();
-                        col.Append(Convert<typename ReprType<id>::T>::FromString(token));
+                        col.Append(ConvertVal<id>::FromString(token));
                     }
                 };
                 std::visit(visitor, columns[i].Values());
@@ -152,11 +152,8 @@ void WriteAsCsv(std::ostream& out, std::unique_ptr<BatchStream> stream) {
         size_t n_rows = batch->NRows();
         for (size_t i = 0; i < n_rows; i++) {
             for (size_t j = 0; j < n_cols; j++) {
-                vec[j] = std::visit(
-                    [&]<TypeId id>(const ColumnT<id>& col) {
-                        return Convert<typename ReprType<id>::T>::ToString(col[i]);
-                    },
-                    batch->Columns()[j].Values());
+                vec[j] = std::visit([&]<TypeId id>(const ColumnT<id>& col) { return ConvertVal<id>::ToString(col[i]); },
+                                    batch->Columns()[j].Values());
             }
             writer.write_row(vec);
         }

@@ -41,7 +41,7 @@ std::shared_ptr<const Schema> ReadSchema(FileReader &reader, size_t &ptr) {
     std::vector<int> types = VecFromBytes<int>(header.subspan(4, n_cols * 4));
     size_t names_size = ValueFromBytes<int>(header.subspan(4 + n_cols * 4, 4));
     ColumnT<TypeId::String> col =
-        Convert<ColumnT<TypeId::String>>::FromBytes(header.subspan(4 + n_cols * 4 + 4, names_size));
+        ConvertCol<ColumnT<TypeId::String>>::FromBytes(header.subspan(4 + n_cols * 4 + 4, names_size));
 
     std::vector<Schema::ColumnInfo> columns(n_cols);
     for (size_t i = 0; i < n_cols; i++) {
@@ -121,7 +121,7 @@ std::unique_ptr<Batch> CurseReader::Next() {
         m_reader->ReadBytes(m_ptr + beg, buf);
         DecompressLZ4(buf, buf2);
 
-        columns.emplace_back(Convert<Column>::FromBytes(m_read_schema->Columns()[i].type, buf2));
+        columns.emplace_back(ConvertCol<Column>::FromBytes(m_read_schema->Columns()[i].type, buf2));
     }
 
     m_ptr += batch_size_bytes;
@@ -149,7 +149,7 @@ void WriteSchema(FileWriter &writer, const Schema &schema) {
 
     std::vector<char> bytes1 = SizeToFourBytes(n_cols);
     std::vector<char> bytes2 = VecToBytes<int>(types);
-    std::vector<char> bytes4 = Convert<ColumnT<TypeId::String>>::ToBytes(names);
+    std::vector<char> bytes4 = ConvertCol<ColumnT<TypeId::String>>::ToBytes(names);
     std::vector<char> bytes3 = SizeToFourBytes(bytes4.size());
     std::vector<char> bytes0 = SizeToFourBytes(4 + bytes1.size() + bytes2.size() + bytes3.size() + bytes4.size());
 
@@ -165,7 +165,7 @@ void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch) {
 
     for (size_t i = 0; i < n_cols; i++) {
         futures[i] = thread_pool.Push([&, i] {
-            CompressLZ4(Convert<Column>::ToBytes(cols[i]), vec[i]);
+            CompressLZ4(ConvertCol<Column>::ToBytes(cols[i]), vec[i]);
             cols[i].Clear();
         });
     }

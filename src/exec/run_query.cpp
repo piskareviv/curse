@@ -513,9 +513,9 @@ std::unique_ptr<BatchStream> Q36(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"URL", "CounterID", "EventDate", "DontCountHits", "IsRefresh"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-01")});
+    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-01")});
 
-    auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
+    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-31")});
 
     auto filt = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
@@ -551,9 +551,9 @@ std::unique_ptr<BatchStream> Q37(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"Title", "CounterID", "EventDate", "DontCountHits", "IsRefresh"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-01")});
+    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-01")});
 
-    auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
+    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-31")});
 
     auto filt = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
@@ -585,8 +585,8 @@ std::unique_ptr<BatchStream> Q38(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"URL", "CounterID", "EventDate", "IsRefresh", "IsLink", "IsDownload"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-01")});
-    auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
+    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-01")});
+    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-31")});
 
     auto filt = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
@@ -627,9 +627,9 @@ std::unique_ptr<BatchStream> Q39(const std::string& file) {
         file, SubSchema(kHitsSchema, {"TraficSourceID", "SearchEngineID", "AdvEngineID", "Referer", "URL", "CounterID",
                                       "EventDate", "IsRefresh"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-01")});
+    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-01")});
 
-    auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
+    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-31")});
 
     auto trs = TransformOperator(
         {ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
@@ -664,9 +664,9 @@ std::unique_ptr<BatchStream> Q40(const std::string& file) {
         file,
         SubSchema(kHitsSchema, {"URLHash", "EventDate", "CounterID", "IsRefresh", "TraficSourceID", "RefererHash"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-01")});
+    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-01")});
 
-    auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
+    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-31")});
 
     auto trs = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
@@ -713,9 +713,9 @@ std::unique_ptr<BatchStream> Q41(const std::string& file) {
         file, SubSchema(kHitsSchema, {"WindowClientWidth", "WindowClientHeight", "CounterID", "EventDate", "IsRefresh",
                                       "DontCountHits", "URLHash"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-01")});
+    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-01")});
 
-    auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-31")});
+    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-31")});
 
     auto cmp = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
@@ -762,9 +762,9 @@ std::unique_ptr<BatchStream> Q42(const std::string& file) {
     auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"EventTime", "EventDate", "CounterID", "IsRefresh", "DontCountHits"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-14")});
+    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-14")});
 
-    auto d2 = Value(ValueT<TypeId::Date>{Convert<std::chrono::year_month_day>::FromString("2013-07-15")});
+    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-15")});
 
     auto cmp = TransformOperator({
         ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),

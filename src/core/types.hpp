@@ -388,8 +388,8 @@ private:
 
     Column();
 
-    template <typename, typename>
-    friend struct Convert;
+    template <typename>
+    friend struct ConvertCol;
 
 public:
     Column(TypeId id);
