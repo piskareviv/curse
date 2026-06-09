@@ -159,8 +159,8 @@ public:
         for (size_t ind : m_key_col_inds) {
             TypeId id = stream_schema->Columns()[ind].type;
             ExecFor(id, [&]<TypeId id> {
-                if constexpr (ConvertR<id>::kHasRawType) {
-                    key_sizes.push_back(sizeof(typename ConvertR<id>::RawT));
+                if constexpr (ConvertRaw<id>::kHasRawType) {
+                    key_sizes.push_back(sizeof(typename ConvertRaw<id>::RawT));
                 } else {
                     key_sizes.push_back(sizeof(size_t));
                 }
@@ -253,11 +253,11 @@ public:
                         size_t ind = order[i];
                         std::visit(
                             [&]<TypeId id>(const ColumnT<id>& col) {
-                                if constexpr (ConvertR<id>::kHasRawType) {
-                                    constexpr size_t kBytes = sizeof(typename ConvertR<id>::RawT);
+                                if constexpr (ConvertRaw<id>::kHasRawType) {
+                                    constexpr size_t kBytes = sizeof(typename ConvertRaw<id>::RawT);
 
                                     for (size_t j = l; j < r; j++) {
-                                        typename ConvertR<id>::RawT key = ConvertR<id>::ToRaw(col[j]);
+                                        typename ConvertRaw<id>::RawT key = ConvertRaw<id>::ToRaw(col[j]);
                                         memcpy(&map2_keys[j][dlt], &key, kBytes);
                                     }
 
