@@ -23,7 +23,8 @@ add_library(curse_core
 
   ############# 
 
-  operators/aggregation.hpp
+  operators/aggregation.hpp  
+  operators/enumerate.hpp
   operators/drop.hpp
   operators/filter.hpp
   operators/groupby.hpp
@@ -32,7 +33,8 @@ add_library(curse_core
   operators/sort.hpp
   operators/transform.hpp
 
-  operators/aggregation.cpp
+  operators/aggregation.cpp  
+  operators/enumerate.cpp
   operators/drop.cpp
   operators/filter.cpp
   operators/groupby.cpp
