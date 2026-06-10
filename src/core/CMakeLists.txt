@@ -3,7 +3,8 @@ add_library(curse_core
   types.cpp
   file_io.cpp
   csv.cpp
-  storage.cpp
+  storage_read.cpp
+  storage_write.cpp
   aggregators.cpp
 
   #############
