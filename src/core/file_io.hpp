@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <fstream>
+#include <memory>
+#include <mutex>
 #include <span>
 #include <string>
 
@@ -57,6 +59,18 @@ public:
     void Write(std::span<const char> bytes) override;
 
     // void WriteAt(size_t pos, std::span<const char> bytes) override;
+};
+
+class ThreadSafeFileReader {
+private:
+    std::mutex m_mx;
+    std::unique_ptr<FileReader> m_reader;
+
+public:
+    ThreadSafeFileReader(std::unique_ptr<FileReader> reader);
+
+    void ReadBytes(size_t beg, std::span<char> buf);
+    size_t GetSize();
 };
 
 };  // namespace curse

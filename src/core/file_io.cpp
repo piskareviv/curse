@@ -1,5 +1,7 @@
 #include "src/core/file_io.hpp"
 
+#include <mutex>
+
 #include "src/util/assert.hpp"
 
 namespace curse {
@@ -53,5 +55,17 @@ void OfstreamWriter::Write(std::span<const char> bytes) {
 //     Seek(pos);
 //     Write(bytes);
 // }
+
+ThreadSafeFileReader::ThreadSafeFileReader(std::unique_ptr<FileReader> reader) : m_reader(std::move(reader)) {}
+
+void ThreadSafeFileReader::ReadBytes(size_t beg, std::span<char> buf) {
+    std::unique_lock lock(m_mx);
+    m_reader->ReadBytes(beg, buf);
+}
+
+size_t ThreadSafeFileReader::GetSize() {
+    std::unique_lock lock(m_mx);
+    return m_reader->GetSize();
+}
 
 }  // namespace curse

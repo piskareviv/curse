@@ -1,7 +1,10 @@
 // нейрослоп
 
 #include <filesystem>
+#include <memory>
+#include <random>
 #include <span>
+#include <thread>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -95,4 +98,39 @@ TEST_F(FileIOTest, PartialReadFromOffset) {
 
     EXPECT_EQ(buffer[0], 'c');
     EXPECT_EQ(buffer[1], 'd');
+}
+
+TEST_F(FileIOTest, ConcurrentRead) {
+    const size_t file_size = 1'000'000;
+    const size_t reads_per_thread = 10000;
+
+    std::vector<char> vec(file_size);
+    {
+        std::mt19937 rnd(2296);
+        for (char& ch : vec) {
+            ch = static_cast<char>(rnd());
+        }
+        curse::OfstreamWriter writer(kTestFile);
+        writer.Write(vec);
+    }
+
+    for (size_t num_threads : {1, 2, 3, 4, 10, 24, 50}) {
+        // curse::IfstreamReader reader(kTestFile); // this fails (it is supposed to)
+        curse::ThreadSafeFileReader reader(std::make_unique<curse::IfstreamReader>(kTestFile));
+
+        std::vector<std::jthread> threads(num_threads);
+        for (size_t i = 0; i < num_threads; i++) {
+            threads[i] = std::jthread([&, i] {
+                std::mt19937 rnd(i);
+                for (size_t j = 0; j < reads_per_thread; j++) {
+                    size_t ind = (rnd() % 100u) * (file_size / 100);
+                    char ch = vec[ind];
+
+                    std::array<char, 1> buf;
+                    reader.ReadBytes(ind, buf);
+                    ASSERT_EQ(buf[0], ch);
+                }
+            });
+        }
+    }
 }
