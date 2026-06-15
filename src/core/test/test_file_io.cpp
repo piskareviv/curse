@@ -5,6 +5,7 @@
 #include <random>
 #include <span>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -110,6 +111,8 @@ TEST_F(FileIOTest, ConcurrentRead) {
         for (char& ch : vec) {
             ch = static_cast<char>(rnd());
         }
+        ASSERT_EQ(std::unordered_set<char>(vec.begin(), vec.end()).size(), 256);
+
         curse::OfstreamWriter writer(kTestFile);
         writer.Write(vec);
     }
