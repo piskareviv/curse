@@ -1,6 +1,9 @@
 #include "sort.hpp"
 
+#include <cstddef>
 #include <numeric>
+
+#include "src/core/types.hpp"
 
 namespace curse {
 
@@ -64,7 +67,21 @@ public:
             return nullptr;
         }
 
-        size_t n_cols = m_schema->Columns().size();
+        const size_t n_cols = m_schema->Columns().size();
+
+        if (n_cols == 0) {
+            size_t count = 0;
+
+            for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
+                count += batch->NRows();
+            }
+            if (m_limit.has_value()) {
+                count = std::min(count, m_limit.value());
+            }
+
+            m_stream = nullptr;
+            return std::make_unique<Batch>(m_schema, std::vector<Column>{}, count);
+        }
 
         std::vector<Column> vec;
         vec.reserve(n_cols);
@@ -73,12 +90,12 @@ public:
         }
 
         for (std::unique_ptr<Batch> batch = m_stream->Next(); batch; batch = m_stream->Next()) {
-            size_t n_rows = batch->NRows();
+            const size_t n_rows = batch->NRows();
             std::vector<Column> cols = std::move(*batch).ExtractColumns();
 
             if (m_limit.has_value()) {
                 // to handle big batches
-                size_t stride = std::max<size_t>(4096, m_limit.value());
+                const size_t stride = std::max<size_t>(4096, m_limit.value());
 
                 for (size_t i = 0; i < n_rows;) {
                     size_t dlt = std::min(stride, n_rows - i);

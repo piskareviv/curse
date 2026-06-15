@@ -47,6 +47,7 @@ void WriteSchema(FileWriter &writer, const Schema &schema) {
 }
 
 void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch) {
+    size_t n_rows = batch->NRows();
     std::vector<Column> cols = std::move(*batch).ExtractColumns();
     size_t n_cols = cols.size();
 
@@ -64,13 +65,13 @@ void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch) {
     }
 
     std::vector<int> offsets(n_cols);
-    size_t dlt = 4 + n_cols * 4;
+    size_t dlt = 8 + n_cols * 4;
     for (size_t i = 0; i < n_cols; i++) {
         dlt += vec[i].size();
         offsets[i] = dlt;
     }
 
-    writer.Write(Concat(SizeToFourBytes(dlt), VecToBytes(offsets)));
+    writer.Write(Concat(SizeToFourBytes(dlt), SizeToFourBytes(n_rows), VecToBytes(offsets)));
     for (const auto &bytes : vec) {
         writer.Write(bytes);
     }

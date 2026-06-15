@@ -44,7 +44,7 @@ public:
             return nullptr;
         }
 
-        size_t n_rows = batch->NRows();
+        const size_t n_rows = batch->NRows();
 
         std::vector<Column> result = std::move(*batch).ExtractColumns();
         std::visit(

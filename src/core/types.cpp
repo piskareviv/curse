@@ -1,9 +1,12 @@
 #include "types.hpp"
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <variant>
 #include <vector>
+
+#include "src/util/assert.hpp"
 
 namespace curse {
 
@@ -74,25 +77,30 @@ std::shared_ptr<const Schema> AddColumns(const Schema& schema, const std::vector
     return std::make_shared<const Schema>(std::move(columns));
 }
 
-Batch::Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> columns)
+Batch::Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> columns, std::optional<size_t> n_rows)
     : m_schema(schema), m_columns(std::move(columns)) {
+
     ENSURE(schema->Columns().size() == m_columns.size());
+    if (n_rows.has_value()) {
+        m_num_rows = n_rows.value();
+    } else {
+        ENSURE(!m_columns.empty());
+        m_num_rows = m_columns[0].Size();
+    }
+
     for (size_t i = 0; i < m_columns.size(); i++) {
-        ENSURE(m_columns[i].Size() == m_columns[0].Size());
+        ENSURE(m_columns[i].Size() == m_num_rows);
     }
 }
 
 std::vector<Column> Batch::ExtractColumns() && {
     m_schema = nullptr;
+    m_num_rows = 0;
     return std::exchange(m_columns, std::vector<Column>());
 }
 
 size_t Batch::NRows() const {
-    if (m_columns.empty()) {
-        return 0;
-    } else {
-        return m_columns[0].Size();
-    }
+    return m_num_rows;
 }
 const std::vector<Column>& Batch::Columns() const {
     return m_columns;

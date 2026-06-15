@@ -88,20 +88,27 @@ std::unique_ptr<Batch> SimpleCurseReader::Next() {
         return nullptr;
     }
 
-    size_t n_cols = m_file_schema->Columns().size();
+    const size_t n_cols = m_file_schema->Columns().size();
 
-    size_t batch_size_bytes = [&] {
+    const size_t batch_size_bytes = [&] {
         std::array<char, 4> ar;
         m_reader->ReadBytes(m_ptr, ar);
         return ValueFromBytes<int>(ar);
     }();
+    const size_t n_rows = [&] {
+        std::array<char, 4> ar;
+        m_reader->ReadBytes(m_ptr + 4, ar);
+        return ValueFromBytes<int>(ar);
+    }();
 
     std::vector<char> buf_offsets(4 * n_cols);
-    m_reader->ReadBytes(m_ptr + 4, buf_offsets);
+    m_reader->ReadBytes(m_ptr + 8, buf_offsets);
 
-    auto get_offset = [&](size_t k) -> size_t {
-        return k == 0 ? 4 + 4 * n_cols : ValueFromBytes<int>(std::span(buf_offsets).subspan((k - 1) * 4, 4));
-    };
+    std::vector<size_t> offsets(n_cols + 1);
+    offsets[0] = 8 + 4 * n_cols;
+    for (size_t i = 0; i < n_cols; i++) {
+        offsets[i + 1] = ValueFromBytes<int>(std::span(buf_offsets).subspan(i * 4, 4));
+    }
 
     std::vector<Column> columns;
 
@@ -110,8 +117,8 @@ std::unique_ptr<Batch> SimpleCurseReader::Next() {
 
     for (size_t i = 0; i < m_inds.size(); i++) {
         size_t ind = m_inds[i];
-        size_t beg = get_offset(ind);
-        size_t end = get_offset(ind + 1);
+        size_t beg = offsets[ind];
+        size_t end = offsets[ind + 1];
 
         buf.resize(end - beg);
 
@@ -122,7 +129,7 @@ std::unique_ptr<Batch> SimpleCurseReader::Next() {
     }
 
     m_ptr += batch_size_bytes;
-    return std::make_unique<Batch>(m_read_schema, std::move(columns));
+    return std::make_unique<Batch>(m_read_schema, std::move(columns), n_rows);
 }
 
 }  // namespace curse

@@ -516,6 +516,7 @@ public:
             return nullptr;
         }
 
+        const size_t n_rows = batch->NRows();
         std::vector<Column> cols = std::move(*batch).ExtractColumns();
         std::vector<std::reference_wrapper<const Column>> vec;
 
@@ -531,7 +532,7 @@ public:
             cols.push_back(std::move(col));
         }
 
-        return std::make_unique<Batch>(m_schema, cols);
+        return std::make_unique<Batch>(m_schema, cols, n_rows);
     }
 
     std::shared_ptr<const Schema> GetSchema() override {

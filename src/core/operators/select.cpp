@@ -49,6 +49,7 @@ public:
             return nullptr;
         }
 
+        const size_t n_rows = batch->NRows();
         std::vector<Column> cols = std::move(*batch).ExtractColumns();
 
         std::vector<Column> result;
@@ -57,7 +58,7 @@ public:
             result.emplace_back(std::move(cols[ind]));
         }
 
-        return std::make_unique<Batch>(m_schema, std::move(result));
+        return std::make_unique<Batch>(m_schema, std::move(result), n_rows);
     }
 
     std::shared_ptr<const Schema> GetSchema() override {

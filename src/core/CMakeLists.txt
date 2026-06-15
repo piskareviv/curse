@@ -41,6 +41,8 @@ add_library(curse_core
   operators/skip.cpp
   operators/sort.cpp
   operators/transform.cpp
+  operators/count.hpp
+  operators/count.cpp
 )
   
 target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})

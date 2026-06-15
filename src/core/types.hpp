@@ -7,6 +7,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -419,9 +420,11 @@ class Batch {
 private:
     std::shared_ptr<const Schema> m_schema;
     std::vector<Column> m_columns;
+    size_t m_num_rows;
 
 public:
-    Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> columns);
+    Batch(const std::shared_ptr<const Schema>& schema, std::vector<Column> columns,
+          std::optional<size_t> n_rows = std::nullopt);
 
     std::vector<Column> ExtractColumns() &&;
 

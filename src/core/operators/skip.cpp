@@ -49,7 +49,7 @@ public:
                        batch->Columns()[i].Values());
         }
 
-        return std::make_unique<Batch>(m_schema, std::move(result));
+        return std::make_unique<Batch>(m_schema, std::move(result), inds.size());
     }
 
     std::shared_ptr<const Schema> GetSchema() override {
