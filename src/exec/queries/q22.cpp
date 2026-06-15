@@ -5,7 +5,7 @@ using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q22(const std::string& file) {
     auto reader =
-        std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"Title", "URL", "SearchPhrase", "UserID"}));
+        std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"Title", "URL", "SearchPhrase", "UserID"}));
 
     auto trs = TransformOperator({ColumnOperation(Transform::RegexpSearch("Google"), "Title", "title_match"),
                                   ColumnOperation(Transform::RegexpSearch("\\.google\\."), "URL", "url_google"),

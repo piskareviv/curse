@@ -4,7 +4,7 @@ namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q23(const std::string& file) {
-    auto reader = std::make_unique<CurseReader>(file, kHitsSchema);
+    auto reader = std::make_unique<SimpleCurseReader>(file, kHitsSchema);
 
     auto trs = TransformOperator({ColumnOperation(Transform::RegexpSearch("google"), "URL", "match")});
 

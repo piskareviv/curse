@@ -49,7 +49,7 @@ std::shared_ptr<const Schema> ReadSchema(FileReader &reader, size_t &ptr) {
     return std::make_shared<Schema>(std::move(columns));
 }
 
-CurseReader::CurseReader(std::unique_ptr<FileReader> reader, std::optional<Schema> read_schema)
+SimpleCurseReader::SimpleCurseReader(std::unique_ptr<FileReader> reader, std::optional<Schema> read_schema)
     : m_reader(std::move(reader)), m_ptr(0) {
 
     m_file_size = m_reader->GetSize();
@@ -71,14 +71,14 @@ CurseReader::CurseReader(std::unique_ptr<FileReader> reader, std::optional<Schem
     }
 }
 
-CurseReader::CurseReader(const std::string &file, std::optional<Schema> read_schema)
-    : CurseReader(std::make_unique<IfstreamReader>(file), read_schema) {}
+SimpleCurseReader::SimpleCurseReader(const std::string &file, std::optional<Schema> read_schema)
+    : SimpleCurseReader(std::make_unique<IfstreamReader>(file), read_schema) {}
 
-std::shared_ptr<const Schema> CurseReader::GetSchema() {
+std::shared_ptr<const Schema> SimpleCurseReader::GetSchema() {
     return m_read_schema;
 }
 
-std::unique_ptr<Batch> CurseReader::Next() {
+std::unique_ptr<Batch> SimpleCurseReader::Next() {
     if (m_marker_read && m_ptr == m_file_size) {
         return nullptr;
     }

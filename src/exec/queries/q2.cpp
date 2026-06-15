@@ -5,7 +5,7 @@ using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q2(const std::string& file) {
     std::unique_ptr<BatchStream> reader =
-        std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"AdvEngineID", "ResolutionWidth"}));
+        std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"AdvEngineID", "ResolutionWidth"}));
 
     AggregationOperator aggr({
         AggregationOperator::Params{.tp = AggType::Sum, .inp_col = "AdvEngineID", .out_col = "1"},

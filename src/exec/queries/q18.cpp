@@ -4,7 +4,8 @@ namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q18(const std::string& file) {
-    auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"UserID", "EventTime", "SearchPhrase"}));
+    auto reader =
+        std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"UserID", "EventTime", "SearchPhrase"}));
 
     auto minute_op = ColumnOperation(Transform::ExtractMinute(), "EventTime", "m");
     auto transform = TransformOperator({minute_op});

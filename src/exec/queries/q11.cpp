@@ -4,8 +4,8 @@ namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q11(const std::string& file) {
-    auto reader =
-        std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"MobilePhone", "MobilePhoneModel", "UserID"}));
+    auto reader = std::make_unique<SimpleCurseReader>(
+        file, SubSchema(kHitsSchema, {"MobilePhone", "MobilePhoneModel", "UserID"}));
 
     auto filter = FilterOperator("MobilePhoneModel");
 

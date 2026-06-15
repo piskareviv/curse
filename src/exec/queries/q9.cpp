@@ -4,7 +4,7 @@ namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q9(const std::string& file) {
-    auto reader = std::make_unique<CurseReader>(
+    auto reader = std::make_unique<SimpleCurseReader>(
         file, SubSchema(kHitsSchema, {"RegionID", "AdvEngineID", "ResolutionWidth", "UserID"}));
 
     auto group_by = GroupByOperator(

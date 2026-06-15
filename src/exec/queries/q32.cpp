@@ -4,8 +4,8 @@ namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q32(const std::string& file) {
-    auto reader1 = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"WatchID", "ClientIP"}));
-    auto reader2 = std::make_unique<CurseReader>(
+    auto reader1 = std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"WatchID", "ClientIP"}));
+    auto reader2 = std::make_unique<SimpleCurseReader>(
         file, SubSchema(kHitsSchema, {"WatchID", "ClientIP", "IsRefresh", "ResolutionWidth"}));
 
     GroupByOperator group_by({"WatchID", "ClientIP"}, {{.tp = AggType::Count, .inp_col = "WatchID", .out_col = "c"}});

@@ -4,7 +4,7 @@ namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q28(const std::string& file) {
-    auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"Referer"}));
+    auto reader = std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"Referer"}));
 
     FilterOperator non_empty("Referer");
 

@@ -79,7 +79,7 @@ TEST_F(StorageTest, ItWorks) {
     });
 
     WriteAsCurse(test_files[1], std::make_unique<CsvReader>(test_files[0], schema));
-    WriteAsCsv(test_files[2], std::make_unique<CurseReader>(test_files[1]));
+    WriteAsCsv(test_files[2], std::make_unique<SimpleCurseReader>(test_files[1]));
 
     ASSERT_EQ(Read(test_files[2]), data);
 }
@@ -109,7 +109,7 @@ TEST_F(StorageTest, CheckAllTypes) {
 
     ASSERT_EQ(Read(test_files[2]), data);
 
-    WriteAsCsv(test_files[3], std::make_unique<CurseReader>(test_files[1]));
+    WriteAsCsv(test_files[3], std::make_unique<SimpleCurseReader>(test_files[1]));
     ASSERT_EQ(Read(test_files[3]), data);
 }
 
@@ -124,8 +124,8 @@ TEST_F(StorageTest, MoreThanOneBatch) {
     });
 
     WriteAsCurse(test_files[1], std::make_unique<CsvReader>(test_files[0], schema, 1));
-    WriteAsCsv(test_files[2], std::make_unique<CurseReader>(test_files[1]));
+    WriteAsCsv(test_files[2], std::make_unique<SimpleCurseReader>(test_files[1]));
 
     ASSERT_EQ(Read(test_files[2]), data);
-    ASSERT_EQ(std::make_unique<CurseReader>(test_files[1])->Next()->NRows(), 1);
+    ASSERT_EQ(std::make_unique<SimpleCurseReader>(test_files[1])->Next()->NRows(), 1);
 }

@@ -4,7 +4,7 @@ namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
 std::unique_ptr<BatchStream> Q29(const std::string& file) {
-    auto reader = std::make_unique<CurseReader>(file, SubSchema(kHitsSchema, {"ResolutionWidth"}));
+    auto reader = std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"ResolutionWidth"}));
 
     AggregationOperator agg({
         {.tp = AggType::Sum, .inp_col = "ResolutionWidth", .out_col = "sum0"},

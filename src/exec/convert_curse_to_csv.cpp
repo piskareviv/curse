@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
     std::string input_file = argv[1];
     std::string output_file = argv[2];
 
-    std::unique_ptr<curse::BatchStream> input_stream = std::make_unique<curse::CurseReader>(input_file);
+    std::unique_ptr<curse::BatchStream> input_stream = std::make_unique<curse::SimpleCurseReader>(input_file);
 
     if (output_file == "-") {
         curse::WriteAsCsv(std::cout, std::move(input_stream));
