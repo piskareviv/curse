@@ -53,7 +53,7 @@ public:
                         filt[i] = col[i].size() != 0;
                     }
                 } else {
-                    ENSURE("something went wrong");
+                    ENSURE_MSG(false, "something went wrong");
                 }
             },
             batch->Columns()[m_col_ind].Values());
