@@ -22,7 +22,7 @@ std::unique_ptr<curse::BatchStream> ExecuteQuery(int id, const std::string& inpu
 
 int main(int argc, char** argv) {
     if (argc != 4) {
-        std::cerr << std::format("usage: {} [CURSED FILE] [OUTPUT] [QUERY_NUM] \n", argv[0]) << std::endl;
+        std::cerr << std::format("usage: {} <CURSED FILE> <OUTPUT> <QUERY_NUM> \n", argv[0]) << std::endl;
         return 1;
     }
 

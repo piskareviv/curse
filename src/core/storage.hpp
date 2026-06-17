@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <span>
@@ -96,6 +97,12 @@ public:
 
 // #######################################################################################################
 
-void WriteAsCurse(const std::string& file, std::unique_ptr<BatchStream> stream);
+struct Stats {
+    size_t total_bytes = 0;
+    size_t total_bytes_compressed = 0;
+};
+
+void WriteAsCurse(const std::string& file, std::unique_ptr<BatchStream> stream,
+                  std::optional<std::reference_wrapper<std::vector<Stats>>> stats = std::nullopt);
 
 }  // namespace curse

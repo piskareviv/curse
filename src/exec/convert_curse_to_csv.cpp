@@ -9,7 +9,7 @@
 int main(int argc, char** argv) {
     if (argc != 3) {
         std::cerr << std::format(
-                         "usage: {} [INPUT_FILE] [OUTPUT_FILE]\n"
+                         "usage: {} <INPUT_FILE> <OUTPUT_FILE>\n"
                          "if OUTPUT_FILE is \"-\", write to stdout\n",
                          argv[0])
                   << std::endl;

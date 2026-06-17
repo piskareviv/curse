@@ -46,7 +46,8 @@ void WriteSchema(FileWriter &writer, const Schema &schema) {
     writer.Write(Concat(bytes0, bytes1, bytes2, bytes3, bytes4));
 }
 
-void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch) {
+void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch,
+                std::optional<std::reference_wrapper<std::vector<Stats>>> stats) {
     size_t n_rows = batch->NRows();
     std::vector<Column> cols = std::move(*batch).ExtractColumns();
     size_t n_cols = cols.size();
@@ -56,8 +57,17 @@ void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch) {
 
     for (size_t i = 0; i < n_cols; i++) {
         futures[i] = thread_pool.Push([&, i] {
-            CompressLZ4(ConvertCol<Column>::ToBytes(cols[i]), vec[i]);
+            auto bytes = ConvertCol<Column>::ToBytes(cols[i]);
+            const size_t raw_size = bytes.size();
+            CompressLZ4(std::move(bytes), vec[i]);
+            const size_t comp_size = vec[i].size();
             cols[i].Clear();
+
+            if (stats.has_value()) {
+                auto &vec = stats->get();
+                vec[i].total_bytes += raw_size;
+                vec[i].total_bytes_compressed += comp_size;
+            }
         });
     }
     for (size_t i = 0; i < n_cols; i++) {
@@ -77,15 +87,20 @@ void WriteBatch(FileWriter &writer, std::unique_ptr<Batch> batch) {
     }
 }
 
-void WriteAsCurse(const std::string &file, std::unique_ptr<BatchStream> stream) {
+void WriteAsCurse(const std::string &file, std::unique_ptr<BatchStream> stream,
+                  std::optional<std::reference_wrapper<std::vector<Stats>>> stats) {
     OfstreamWriter ofstream_writer(file);
     FileWriter &writer = ofstream_writer;
+
+    if (stats.has_value()) {
+        stats->get().assign(stream->GetSchema()->Columns().size(), Stats());
+    }
 
     writer.Write(kFormatMarker);
 
     WriteSchema(writer, *stream->GetSchema());
     for (std::unique_ptr<Batch> batch = stream->Next(); batch; batch = stream->Next()) {
-        WriteBatch(writer, std::move(batch));
+        WriteBatch(writer, std::move(batch), stats);
     }
 
     writer.Write(kFormatMarker);
