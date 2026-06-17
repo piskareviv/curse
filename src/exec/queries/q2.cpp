@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT SUM(AdvEngineID), COUNT(*), AVG(ResolutionWidth) FROM hits;
 std::unique_ptr<BatchStream> Q2(const std::string& file) {
     std::unique_ptr<BatchStream> reader =
         std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"AdvEngineID", "ResolutionWidth"}));

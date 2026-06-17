@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT 1, URL, COUNT(*) AS c FROM hits GROUP BY 1, URL ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q34(const std::string& file) {
     auto reader = std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"URL"}));
 

@@ -12,6 +12,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT COUNT(*) FROM hits;
 std::unique_ptr<BatchStream> Q0(const std::string& file) {
     std::unique_ptr<BatchStream> reader = std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {}));
 

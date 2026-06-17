@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT AdvEngineID, COUNT(*) FROM hits WHERE AdvEngineID <> 0 GROUP BY AdvEngineID ORDER BY COUNT(*) DESC;
 std::unique_ptr<BatchStream> Q7(const std::string& file) {
     std::unique_ptr<BatchStream> reader =
         std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"AdvEngineID"}));

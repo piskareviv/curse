@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT RegionID, SUM(AdvEngineID), COUNT(*) AS c, AVG(ResolutionWidth), COUNT(DISTINCT UserID) FROM hits GROUP BY RegionID ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q9(const std::string& file) {
     auto reader = std::make_unique<SimpleCurseReader>(
         file, SubSchema(kHitsSchema, {"RegionID", "AdvEngineID", "ResolutionWidth", "UserID"}));

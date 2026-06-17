@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT COUNT(DISTINCT SearchPhrase) FROM hits;
 std::unique_ptr<BatchStream> Q5(const std::string& file) {
     std::unique_ptr<BatchStream> reader =
         std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"SearchPhrase"}));

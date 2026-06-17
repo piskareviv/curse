@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT MIN(EventDate), MAX(EventDate) FROM hits;
 std::unique_ptr<BatchStream> Q6(const std::string& file) {
     std::unique_ptr<BatchStream> reader =
         std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"EventDate"}));

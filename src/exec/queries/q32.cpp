@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT WatchID, ClientIP, COUNT(*) AS c, SUM(IsRefresh), AVG(ResolutionWidth) FROM hits GROUP BY WatchID, ClientIP ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q32(const std::string& file) {
     auto reader1 = std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"WatchID", "ClientIP"}));
     auto reader2 = std::make_unique<SimpleCurseReader>(

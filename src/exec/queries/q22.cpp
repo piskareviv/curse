@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT SearchPhrase, MIN(URL), MIN(Title), COUNT(*) AS c, COUNT(DISTINCT UserID) FROM hits WHERE Title LIKE '%Google%' AND URL NOT LIKE '%.google.%' AND SearchPhrase <> '' GROUP BY SearchPhrase ORDER BY c DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q22(const std::string& file) {
     auto reader =
         std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"Title", "URL", "SearchPhrase", "UserID"}));

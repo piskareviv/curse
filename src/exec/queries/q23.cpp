@@ -3,6 +3,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
+// SELECT * FROM hits WHERE URL LIKE '%google%' ORDER BY EventTime LIMIT 10;
 std::unique_ptr<BatchStream> Q23(const std::string& file) {
     auto reader = std::make_unique<SimpleCurseReader>(file, kHitsSchema);
 
