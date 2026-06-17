@@ -81,6 +81,14 @@ TypeId Schema::TypeOf(std::string_view column_name) const {
     return m_columns[IndexOf(column_name)].type;
 }
 
+Schema SubSchema(const Schema& schema, std::vector<std::string> sub_schema) {
+    std::vector<Schema::ColumnInfo> cols;
+    for (const std::string& name : sub_schema) {
+        cols.push_back(schema.Columns()[schema.IndexOf(name)]);
+    }
+    return Schema(cols);
+}
+
 std::shared_ptr<const Schema> AddColumn(const Schema& schema, const Schema::ColumnInfo& info) {
     std::vector<Schema::ColumnInfo> columns = schema.Columns();
     columns.push_back(info);

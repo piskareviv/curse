@@ -22,7 +22,7 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
-curse::Schema SubSchema(const curse::Schema& schema, std::vector<std::string> sub_schema);
+// curse::Schema SubSchema(const curse::Schema& schema, std::vector<std::string> sub_schema);
 
 std::unique_ptr<BatchStream> Q0(const std::string& file);
 std::unique_ptr<BatchStream> Q1(const std::string& file);

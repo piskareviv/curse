@@ -28,6 +28,16 @@ public:
     void Process(BatchView &bv, std::span<ReprType<TypeId::Int8>::T> mask) const override;
 };
 
+class OperatorSelector : public BatchViewSelector {
+private:
+    std::shared_ptr<const Schema> m_sub_sch;
+    std::shared_ptr<Operator> m_op;
+
+public:
+    OperatorSelector(std::shared_ptr<const Schema> sub_schema, std::shared_ptr<Operator> op);
+    void Process(BatchView &bv, std::span<ReprType<TypeId::Int8>::T> mask) const override;
+};
+
 class Skipper {
 public:
     virtual std::unique_ptr<BatchStream> Transform(std::unique_ptr<BatchViewStream>) const = 0;

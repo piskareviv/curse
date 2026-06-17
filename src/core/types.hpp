@@ -419,6 +419,7 @@ public:
     TypeId TypeOf(std::string_view column_name) const;
 };
 
+Schema SubSchema(const Schema& schema, std::vector<std::string> sub_schema);
 std::shared_ptr<const Schema> AddColumn(const Schema& schema, const Schema::ColumnInfo& info);
 std::shared_ptr<const Schema> AddColumns(const Schema& schema, const std::vector<Schema::ColumnInfo>& cols);
 
