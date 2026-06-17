@@ -61,7 +61,7 @@ public:
     // void WriteAt(size_t pos, std::span<const char> bytes) override;
 };
 
-class ThreadSafeFileReader {
+class ThreadSafeFileReader : public FileReader {
 private:
     std::mutex m_mx;
     std::unique_ptr<FileReader> m_reader;
@@ -69,8 +69,8 @@ private:
 public:
     ThreadSafeFileReader(std::unique_ptr<FileReader> reader);
 
-    void ReadBytes(size_t beg, std::span<char> buf);
-    size_t GetSize();
+    void ReadBytes(size_t beg, std::span<char> buf) override;
+    size_t GetSize() override;
 };
 
 };  // namespace curse

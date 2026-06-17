@@ -49,8 +49,87 @@ std::shared_ptr<const Schema> ReadSchema(FileReader &reader, size_t &ptr) {
     return std::make_shared<Schema>(std::move(columns));
 }
 
-SimpleCurseReader::SimpleCurseReader(std::unique_ptr<FileReader> reader, std::optional<Schema> read_schema)
-    : m_reader(std::move(reader)), m_ptr(0) {
+// ##############################
+
+BatchView::BatchView(Secret, std::shared_ptr<ThreadSafeFileReader> reader, std::shared_ptr<const Schema> file_schema,
+                     std::shared_ptr<const Schema> read_schema, std::vector<size_t> inds, size_t ptr,
+                     std::vector<char> buf_header)
+    : m_reader(std::move(reader)),
+      m_file_schema(std::move(file_schema)),
+      m_read_schema(std::move(read_schema)),
+      m_inds(std::move(inds)),
+      m_ptr(ptr),
+      m_buf_header(std::move(buf_header)) {
+
+    const size_t n_cols = m_file_schema->Columns().size();
+    m_num_rows = ValueFromBytes<int>(std::span(m_buf_header).subspan(4, 4));
+
+    m_offsets.resize(n_cols + 1);
+    m_offsets[0] = 8 + 4 * n_cols;
+    for (size_t i = 0; i < n_cols; i++) {
+        m_offsets[i + 1] = ValueFromBytes<int>(std::span(m_buf_header).subspan(8 + i * 4, 4));
+    }
+
+    m_columns.resize(m_read_schema->Columns().size());
+}
+
+const Column &BatchView::GetColumn(size_t ind) {
+    if (!m_columns[ind].has_value()) {
+        size_t ind_file = m_inds[ind];
+        size_t beg = m_offsets[ind_file];
+        size_t end = m_offsets[ind_file + 1];
+
+        m_buf.resize(end - beg);
+        m_reader->ReadBytes(m_ptr + beg, m_buf);
+        DecompressLZ4(m_buf, m_buf2);
+        m_columns[ind] = ConvertCol<Column>::FromBytes(m_read_schema->Columns()[ind].type, m_buf2);
+    }
+    return m_columns[ind].value();
+}
+
+const Column &BatchView::GetColumn(std::string_view col_name) {
+    return GetColumn(m_read_schema->IndexOf(col_name));
+}
+
+std::vector<Column> BatchView::ExtractColumns() {
+    std::vector<Column> columns;
+    columns.reserve(m_columns.size());
+    for (size_t i = 0; i < m_columns.size(); i++) {
+        GetColumn(i);
+        columns.push_back(std::move(m_columns[i].value()));
+        m_columns[i] = std::nullopt;
+    }
+    return columns;
+}
+
+std::unique_ptr<Batch> BatchView::ReadAll() && {
+    return std::make_unique<Batch>(m_read_schema, ExtractColumns(), m_num_rows);
+}
+std::unique_ptr<Batch> BatchView::ReadSubset(std::vector<size_t> inds) && {
+    if (inds.empty()) {
+        std::vector<Column> columns;
+        columns.reserve(m_columns.size());
+        for (size_t i = 0; i < m_columns.size(); i++) {
+            columns.emplace_back(m_read_schema->Columns()[i].type);
+        }
+        return std::make_unique<Batch>(m_read_schema, std::move(columns), 0);
+    }
+
+    std::vector<Column> columns = ExtractColumns();
+    for (size_t i = 0; i < columns.size(); i++) {
+        columns[i] = columns[i].Select(inds);
+    }
+    return std::make_unique<Batch>(m_read_schema, std::move(columns), inds.size());
+}
+
+std::shared_ptr<const Schema> BatchView::GetSchema() {
+    return m_read_schema;
+}
+
+// ##############
+
+CurseReader::CurseReader(std::unique_ptr<FileReader> reader, std::optional<Schema> read_schema)
+    : m_reader(std::make_shared<ThreadSafeFileReader>(std::move(reader))), m_ptr(0) {
 
     m_file_size = m_reader->GetSize();
 
@@ -71,14 +150,14 @@ SimpleCurseReader::SimpleCurseReader(std::unique_ptr<FileReader> reader, std::op
     }
 }
 
-SimpleCurseReader::SimpleCurseReader(const std::string &file, std::optional<Schema> read_schema)
-    : SimpleCurseReader(std::make_unique<IfstreamReader>(file), read_schema) {}
+CurseReader::CurseReader(const std::string &file, std::optional<Schema> read_schema)
+    : CurseReader(std::make_unique<IfstreamReader>(file), read_schema) {}
 
-std::shared_ptr<const Schema> SimpleCurseReader::GetSchema() {
+std::shared_ptr<const Schema> CurseReader::GetSchema() {
     return m_read_schema;
 }
 
-std::unique_ptr<Batch> SimpleCurseReader::Next() {
+std::unique_ptr<BatchView> CurseReader::Next() {
     if (m_marker_read && m_ptr == m_file_size) {
         return nullptr;
     }
@@ -89,47 +168,35 @@ std::unique_ptr<Batch> SimpleCurseReader::Next() {
     }
 
     const size_t n_cols = m_file_schema->Columns().size();
+    std::vector<char> buf_header(8 + 4 * n_cols);
+    m_reader->ReadBytes(m_ptr, buf_header);
+    const size_t batch_size_bytes = ValueFromBytes<int>(std::span(buf_header).subspan(0, 4));
 
-    const size_t batch_size_bytes = [&] {
-        std::array<char, 4> ar;
-        m_reader->ReadBytes(m_ptr, ar);
-        return ValueFromBytes<int>(ar);
-    }();
-    const size_t n_rows = [&] {
-        std::array<char, 4> ar;
-        m_reader->ReadBytes(m_ptr + 4, ar);
-        return ValueFromBytes<int>(ar);
-    }();
-
-    std::vector<char> buf_offsets(4 * n_cols);
-    m_reader->ReadBytes(m_ptr + 8, buf_offsets);
-
-    std::vector<size_t> offsets(n_cols + 1);
-    offsets[0] = 8 + 4 * n_cols;
-    for (size_t i = 0; i < n_cols; i++) {
-        offsets[i + 1] = ValueFromBytes<int>(std::span(buf_offsets).subspan(i * 4, 4));
-    }
-
-    std::vector<Column> columns;
-
-    std::vector<char> buf;
-    std::vector<char> buf2;
-
-    for (size_t i = 0; i < m_inds.size(); i++) {
-        size_t ind = m_inds[i];
-        size_t beg = offsets[ind];
-        size_t end = offsets[ind + 1];
-
-        buf.resize(end - beg);
-
-        m_reader->ReadBytes(m_ptr + beg, buf);
-        DecompressLZ4(buf, buf2);
-
-        columns.emplace_back(ConvertCol<Column>::FromBytes(m_read_schema->Columns()[i].type, buf2));
-    }
-
+    std::unique_ptr<BatchView> result = std::make_unique<BatchView>(
+        BatchView::Secret(), m_reader, m_file_schema, m_read_schema, m_inds, m_ptr, std::move(buf_header));
     m_ptr += batch_size_bytes;
-    return std::make_unique<Batch>(m_read_schema, std::move(columns), n_rows);
+    return result;
+}
+
+// ##############################################################
+
+SimpleCurseReader::SimpleCurseReader(std::unique_ptr<FileReader> reader, std::optional<Schema> read_schema)
+    : m_reader(std::move(reader), read_schema) {}
+
+SimpleCurseReader::SimpleCurseReader(const std::string &file, std::optional<Schema> read_schema)
+    : SimpleCurseReader(std::make_unique<IfstreamReader>(file), read_schema) {}
+
+std::shared_ptr<const Schema> SimpleCurseReader::GetSchema() {
+    return m_reader.GetSchema();
+}
+
+std::unique_ptr<Batch> SimpleCurseReader::Next() {
+    std::unique_ptr<BatchView> bv = m_reader.Next();
+    if (!bv) {
+        return nullptr;
+    } else {
+        return std::move(*bv).ReadAll();
+    }
 }
 
 }  // namespace curse

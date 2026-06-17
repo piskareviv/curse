@@ -376,11 +376,16 @@ public:
 
     void Append(Value);
     void Reserve(size_t);
+    void Clear();
 
     ColumnEnum& Values();
     const ColumnEnum& Values() const;
 
-    void Clear();
+    friend bool operator==(const Column& a, const Column& b);
+
+    Column Filter(std::span<const char> filt) const;
+    Column Select(std::span<const size_t> inds) const;
+    void StableArgsort(std::span<size_t> sp, bool reversed = false) const;
 };
 
 class Schema {

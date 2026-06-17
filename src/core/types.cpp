@@ -30,9 +30,11 @@ void Column::Append(Value value) {
     std::visit([&]<TypeId id>(ColumnT<id>& col) { col.Append(std::move(std::get<ValueT<id>>(value.value).value)); },
                m_column);
 }
-
 void Column::Reserve(size_t sz) {
     std::visit([&]<TypeId id>(ColumnT<id>& col) { col.Reserve(sz); }, m_column);
+}
+void Column::Clear() {
+    std::visit([&]<TypeId id>(ColumnT<id>& cl) { cl.Clear(); }, m_column);
 }
 
 Column::ColumnEnum& Column::Values() {
@@ -42,8 +44,18 @@ const Column::ColumnEnum& Column::Values() const {
     return m_column;
 }
 
-void Column::Clear() {
-    std::visit([&]<TypeId id>(ColumnT<id>& cl) { cl.Clear(); }, m_column);
+bool operator==(const Column& a, const Column& b) {
+    return a.m_column == b.m_column;
+}
+
+Column Column::Filter(std::span<const char> filt) const {
+    return std::visit([&]<TypeId id>(const ColumnT<id>& cl) -> Column { return Column(cl.Filter(filt)); }, m_column);
+}
+Column Column::Select(std::span<const size_t> inds) const {
+    return std::visit([&]<TypeId id>(const ColumnT<id>& cl) -> Column { return Column(cl.Select(inds)); }, m_column);
+}
+void Column::StableArgsort(std::span<size_t> sp, bool reversed) const {
+    std::visit([&]<TypeId id>(const ColumnT<id>& cl) { cl.StableArgsort(sp, reversed); }, m_column);
 }
 
 Schema::Schema(std::vector<ColumnInfo> columns) : m_columns(std::move(columns)) {
