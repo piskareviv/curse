@@ -1,46 +1,40 @@
 #include "../queries.hpp"
+#include "src/core/skippers.hpp"
 
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
-// SELECT DATE_TRUNC('minute', EventTime) AS M, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-14' AND EventDate <= '2013-07-15' AND IsRefresh = 0 AND DontCountHits = 0 GROUP BY DATE_TRUNC('minute', EventTime) ORDER BY DATE_TRUNC('minute', EventTime) LIMIT 10 OFFSET 1000;
+// SELECT DATE_TRUNC('minute', EventTime) AS M, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >=
+// '2013-07-14' AND EventDate <= '2013-07-15' AND IsRefresh = 0 AND DontCountHits = 0 GROUP BY DATE_TRUNC('minute',
+// EventTime) ORDER BY DATE_TRUNC('minute', EventTime) LIMIT 10 OFFSET 1000;
 std::unique_ptr<BatchStream> Q42(const std::string& file) {
-    auto reader = std::make_unique<SimpleCurseReader>(
+    auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"EventTime", "EventDate", "CounterID", "IsRefresh", "DontCountHits"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-14")});
+    auto d1 = Value::From<TypeId::Date>(ConvertVal<TypeId::Date>::FromString("2013-07-14"));
+    auto d2 = Value::From<TypeId::Date>(ConvertVal<TypeId::Date>::FromString("2013-07-15"));
 
-    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-15")});
+    auto sel1 = std::make_shared<TransformSelector>(
+        "CounterID", Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})));
+    auto sel2 = std::make_shared<TransformSelector>(
+        "EventDate", Transform::Compare(Transform::ComparisonType::GreaterThanOrEqual, d1));
+    auto sel3 = std::make_shared<TransformSelector>("EventDate",
+                                                    Transform::Compare(Transform::ComparisonType::LessThanOrEqual, d2));
+    auto sel4 = std::make_shared<TransformSelector>(
+        "IsRefresh", Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})));
+    auto sel5 = std::make_shared<TransformSelector>(
+        "DontCountHits", Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})));
 
-    auto trs = TransformOperator({
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
-                        "CounterID", "c"),
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::GreaterThanOrEqual, d1), "EventDate", "ge"),
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::LessThanOrEqual, d2), "EventDate", "le"),
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
-                        "IsRefresh", "r"),
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
-                        "DontCountHits", "d"),
-        //
-        ColumnOperation::LogicalAnd("c", "ge", "k1"),
-        ColumnOperation::LogicalAnd("k1", "le", "k2"),
-        ColumnOperation::LogicalAnd("k2", "r", "k3"),
-        ColumnOperation::LogicalAnd("k3", "d", "keep"),
-    });
+    BasicSkipper early_skip({sel1, sel2, sel3, sel4, sel5});
 
-    auto trunc = TransformOperator({ColumnOperation(Transform::TruncateToMinutes(), "EventTime", "M")});
-
-    FilterOperator keep("keep");
-
+    auto trunc = TransformOperator({ColumnOperation("EventTime", "M", Transform::TruncateToMinutes())});
     GroupByOperator group_by({"M"}, {{.tp = AggType::Count, .inp_col = "EventTime", .out_col = "PageViews"}});
 
-    SortOperator sort1({{.inp_col = "M"}});
-
-    SkipOperator skip(1000);
-
+    SortOperator sort1({{.inp_col = "M"}}, 1000 + 10);
+    SkipOperator skip_offset(1000);
     SortOperator sort2({{.inp_col = "M"}}, 10);
 
-    return std::move(reader) >= trs >= keep >= trunc >= group_by >= sort1 >= skip >= sort2;
+    return std::move(reader) >= early_skip >= trunc >= group_by >= sort1 >= skip_offset >= sort2;
 }
 
 }  // namespace Q

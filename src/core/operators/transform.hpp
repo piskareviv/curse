@@ -58,7 +58,8 @@ private:
     friend class TransformOperatorStream;
 
 public:
-    ColumnOperation(Transform trs, std::string inp_col, std::string out_col);
+    ColumnOperation(Transform trs, std::string inp_col, std::string out_col);  // legacy
+    ColumnOperation(std::string inp_col, std::string out_col, Transform trs);
 
     enum class Logical {
         And,

@@ -61,6 +61,10 @@ public:
         std::vector<ReprType<TypeId::Int8>::T> mask(batch->NRows(), 1);
         for (auto& ptr : m_selectors) {
             ptr->Process(*batch, mask);
+
+            if (static_cast<size_t>(std::count(mask.begin(), mask.end(), 0)) == mask.size()) {
+                return std::move(*batch).ReadSubset(std::vector<size_t>());
+            }
         }
         return std::move(*batch).ReadSubset(mask);
     }

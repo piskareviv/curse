@@ -224,6 +224,9 @@ ColumnOperation::ColumnOperation(Transform trs, std::string inp_col, std::string
       m_input_cols{std::move(inp_col)},
       m_output_col(std::move(out_col)) {}
 
+ColumnOperation::ColumnOperation(std::string inp_col, std::string out_col, Transform trs)
+    : ColumnOperation(std::move(trs), std::move(inp_col), std::move(out_col)) {}
+
 ColumnOperation ColumnOperation::LogicalOp(std::string col1, std::string col2, std::string out_col, Logical op) {
     std::function<Column(std::span<std::reference_wrapper<const Column>>)> trs =
         [=](std::span<std::reference_wrapper<const Column>> sp) -> Column {

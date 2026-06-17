@@ -1,37 +1,35 @@
 #include "../queries.hpp"
+#include "src/core/skippers.hpp"
 
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
-// SELECT WindowClientWidth, WindowClientHeight, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >= '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND DontCountHits = 0 AND URLHash = 2868770270353813622 GROUP BY WindowClientWidth, WindowClientHeight ORDER BY PageViews DESC LIMIT 10 OFFSET 10000;
+// SELECT WindowClientWidth, WindowClientHeight, COUNT(*) AS PageViews FROM hits WHERE CounterID = 62 AND EventDate >=
+// '2013-07-01' AND EventDate <= '2013-07-31' AND IsRefresh = 0 AND DontCountHits = 0 AND URLHash = 2868770270353813622
+// GROUP BY WindowClientWidth, WindowClientHeight ORDER BY PageViews DESC LIMIT 10 OFFSET 10000;
 std::unique_ptr<BatchStream> Q41(const std::string& file) {
-    auto reader = std::make_unique<SimpleCurseReader>(
+    auto reader = std::make_unique<CurseReader>(
         file, SubSchema(kHitsSchema, {"WindowClientWidth", "WindowClientHeight", "CounterID", "EventDate", "IsRefresh",
                                       "DontCountHits", "URLHash"}));
 
-    auto d1 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-01")});
+    auto d1 = Value::From<TypeId::Date>(ConvertVal<TypeId::Date>::FromString("2013-07-01"));
+    auto d2 = Value::From<TypeId::Date>(ConvertVal<TypeId::Date>::FromString("2013-07-31"));
 
-    auto d2 = Value(ValueT<TypeId::Date>{ConvertVal<TypeId::Date>::FromString("2013-07-31")});
+    auto sel1 = std::make_shared<TransformSelector>(
+        "CounterID", Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})));
+    auto sel2 = std::make_shared<TransformSelector>(
+        "EventDate", Transform::Compare(Transform::ComparisonType::GreaterThanOrEqual, d1));
+    auto sel3 = std::make_shared<TransformSelector>("EventDate",
+                                                    Transform::Compare(Transform::ComparisonType::LessThanOrEqual, d2));
+    auto sel4 = std::make_shared<TransformSelector>(
+        "IsRefresh", Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})));
+    auto sel5 = std::make_shared<TransformSelector>(
+        "DontCountHits", Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})));
+    auto sel6 = std::make_shared<TransformSelector>(
+        "URLHash",
+        Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int64>{2868770270353813622LL})));
 
-    auto cmp = TransformOperator({
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int32>{62})),
-                        "CounterID", "c"),
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::GreaterThanOrEqual, d1), "EventDate", "ge"),
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::LessThanOrEqual, d2), "EventDate", "le"),
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
-                        "IsRefresh", "r"),
-        ColumnOperation(Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int16>{0})),
-                        "DontCountHits", "d"),
-        ColumnOperation(
-            Transform::Compare(Transform::ComparisonType::Equal, Value(ValueT<TypeId::Int64>{2868770270353813622LL})),
-            "URLHash", "u"),
-    });
-
-    auto and1 = TransformOperator({ColumnOperation::LogicalAnd("c", "ge", "k1")});
-    auto and2 = TransformOperator({ColumnOperation::LogicalAnd("k1", "le", "k2")});
-    auto and3 = TransformOperator({ColumnOperation::LogicalAnd("k2", "r", "k3")});
-    auto and4 = TransformOperator({ColumnOperation::LogicalAnd("k3", "d", "k4")});
-    auto and5 = TransformOperator({ColumnOperation::LogicalAnd("k4", "u", "keep")});
+    BasicSkipper early_skip({sel6, sel1, sel2, sel3, sel4, sel5});
 
     GroupByOperator group_by({"WindowClientWidth", "WindowClientHeight"},
                              {{.tp = AggType::Count, .inp_col = "WindowClientWidth", .out_col = "PageViews"}});
@@ -39,16 +37,11 @@ std::unique_ptr<BatchStream> Q41(const std::string& file) {
     size_t to_skip = 10000;
     size_t limit = 10;
 
-    SortOperator sort1(
-        {
-            {.inp_col = "PageViews", .reversed = true},
-        },
-        limit + to_skip);
+    SortOperator sort1({{.inp_col = "PageViews", .reversed = true}}, limit + to_skip);
 
-    SkipOperator skip(to_skip);
+    SkipOperator skip_offset(to_skip);
 
-    return std::move(reader) >= cmp >= and1 >= and2 >= and3 >= and4 >= and5 >= FilterOperator("keep") >= group_by >=
-           sort1 >= skip;
+    return std::move(reader) >= early_skip >= group_by >= sort1 >= skip_offset;
 }
 
 }  // namespace Q

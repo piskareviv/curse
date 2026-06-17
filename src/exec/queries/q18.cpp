@@ -3,7 +3,8 @@
 namespace Q {           // NOLINT
 using namespace curse;  // NOLINT
 
-// SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, m, SearchPhrase ORDER BY COUNT(*) DESC LIMIT 10;
+// SELECT UserID, extract(minute FROM EventTime) AS m, SearchPhrase, COUNT(*) FROM hits GROUP BY UserID, m, SearchPhrase
+// ORDER BY COUNT(*) DESC LIMIT 10;
 std::unique_ptr<BatchStream> Q18(const std::string& file) {
     auto reader =
         std::make_unique<SimpleCurseReader>(file, SubSchema(kHitsSchema, {"UserID", "EventTime", "SearchPhrase"}));
