@@ -41,7 +41,7 @@ public:
         size_t n_cols = m_schema->Columns().size();
         size_t n_rows = batch->NRows();
 
-        std::vector<char> filt(n_rows);
+        std::vector<ReprType<TypeId::Int8>::T> filt(n_rows);
         std::visit(
             [&]<TypeId id>(const ColumnT<id>& col) {
                 if constexpr (IsIntegral(id)) {

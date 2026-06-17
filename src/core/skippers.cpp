@@ -14,7 +14,7 @@ namespace curse {
 TransformSelector::TransformSelector(std::string col_name, Transform trs)
     : m_col_name(std::move(col_name)), m_trs(std::move(trs)) {}
 
-void TransformSelector::Process(BatchView& bv, std::vector<char>& mask) const {
+void TransformSelector::Process(BatchView& bv, std::span<ReprType<TypeId::Int8>::T> mask) const {
     const Column& col = bv.GetColumn(m_col_name);
     Column cl = m_trs.TransformColumn(col);
     ColumnT<TypeId::Int8>& mk = std::get<ColumnT<TypeId::Int8>>(cl.Values());
@@ -58,7 +58,7 @@ public:
             return std::move(*batch).ReadAll();
         }
 
-        std::vector<char> mask(batch->NRows(), 1);
+        std::vector<ReprType<TypeId::Int8>::T> mask(batch->NRows(), 1);
         for (auto& ptr : m_selectors) {
             ptr->Process(*batch, mask);
         }

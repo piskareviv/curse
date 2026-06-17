@@ -90,43 +90,44 @@ Transform Transform::Compare(ComparisonType how, Value value) {
             std::visit(
                 [&]<TypeId id>(const ValueT<id>& val) -> void {
                     const auto& vl = val.value;
-
                     const ColumnT<id>& cl = std::get<ColumnT<id>>(col.Values());
+
                     size_t sz = cl.Size();
-                    res.Reserve(sz);
+                    std::vector<ReprType<TypeId::Int8>::T> vec(sz);
 
                     switch (how) {
                         case ComparisonType::Equal:
                             for (size_t i = 0; i < sz; i++) {
-                                res.Append(cl[i] == vl);
+                                vec[i] = cl[i] == vl;
                             }
                             break;
                         case ComparisonType::NotEqual:
                             for (size_t i = 0; i < sz; i++) {
-                                res.Append(cl[i] != vl);
+                                vec[i] = cl[i] != vl;
                             }
                             break;
                         case ComparisonType::GreaterThan:
                             for (size_t i = 0; i < sz; i++) {
-                                res.Append(cl[i] > vl);
+                                vec[i] = cl[i] > vl;
                             }
                             break;
                         case ComparisonType::GreaterThanOrEqual:
                             for (size_t i = 0; i < sz; i++) {
-                                res.Append(cl[i] >= vl);
+                                vec[i] = cl[i] >= vl;
                             }
                             break;
                         case ComparisonType::LessThan:
                             for (size_t i = 0; i < sz; i++) {
-                                res.Append(cl[i] < vl);
+                                vec[i] = cl[i] < vl;
                             }
                             break;
                         case ComparisonType::LessThanOrEqual:
                             for (size_t i = 0; i < sz; i++) {
-                                res.Append(cl[i] <= vl);
+                                vec[i] = cl[i] <= vl;
                             }
                             break;
                     }
+                    res = ColumnT<TypeId::Int8>::FromVector(std::move(vec));
                 },
                 value.value);
             return res;

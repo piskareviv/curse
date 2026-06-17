@@ -51,7 +51,7 @@ bool operator==(const Column& a, const Column& b) {
     return a.m_column == b.m_column;
 }
 
-Column Column::Filter(std::span<const char> filt) const {
+Column Column::Filter(std::span<const ReprType<TypeId::Int8>::T> filt) const {
     return std::visit([&]<TypeId id>(const ColumnT<id>& cl) -> Column { return Column(cl.Filter(filt)); }, m_column);
 }
 Column Column::Select(std::span<const size_t> inds) const {

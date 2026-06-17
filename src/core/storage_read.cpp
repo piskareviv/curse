@@ -117,10 +117,10 @@ std::unique_ptr<Batch> EmptyBatch(std::shared_ptr<const Schema> sch) {
     return std::make_unique<Batch>(std::move(sch), std::move(columns), 0);
 }
 
-std::unique_ptr<Batch> BatchView::ReadSubset(std::span<char> mask) && {
+std::unique_ptr<Batch> BatchView::ReadSubset(std::span<const ReprType<TypeId::Int8>::T> mask) && {
     ENSURE(mask.size() == NRows());
 
-    size_t cnt = mask.size() - std::count(mask.begin(), mask.end(), 0);
+    size_t cnt = mask.size() - std::count(mask.begin(), mask.end(), static_cast<char>(0));
     if (cnt == 0) {
         return EmptyBatch(m_read_schema);
     }
@@ -130,7 +130,7 @@ std::unique_ptr<Batch> BatchView::ReadSubset(std::span<char> mask) && {
     }
     return std::make_unique<Batch>(m_read_schema, std::move(columns), cnt);
 }
-std::unique_ptr<Batch> BatchView::ReadSubset(std::span<size_t> inds) && {
+std::unique_ptr<Batch> BatchView::ReadSubset(std::span<const size_t> inds) && {
     if (inds.empty()) {
         return EmptyBatch(m_read_schema);
     }

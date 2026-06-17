@@ -223,7 +223,7 @@ public:
         return a.m_values == b.m_values;
     }
 
-    ColumnT Filter(std::span<const char> filt) const {
+    ColumnT Filter(std::span<const ReprType<TypeId::Int8>::T> filt) const {
         ENSURE(filt.size() == Size());
         ColumnT col;
         for (size_t i = 0; i < m_values.size(); i++) {
@@ -324,7 +324,7 @@ public:
         return a.m_data == b.m_data && a.m_offsets == b.m_offsets;
     }
 
-    ColumnT Filter(std::span<const char> filt) const {
+    ColumnT Filter(std::span<const ReprType<TypeId::Int8>::T> filt) const {
         ENSURE(filt.size() == Size());
         ColumnT col;
         for (size_t i = 0; i < Size(); i++) {
@@ -384,7 +384,7 @@ public:
 
     friend bool operator==(const Column& a, const Column& b);
 
-    Column Filter(std::span<const char> filt) const;
+    Column Filter(std::span<const ReprType<TypeId::Int8>::T> filt) const;
     Column Select(std::span<const size_t> inds) const;
     void StableArgsort(std::span<size_t> sp, bool reversed = false) const;
 };

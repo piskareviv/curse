@@ -14,7 +14,7 @@ namespace curse {
 
 class BatchViewSelector {
 public:
-    virtual void Process(BatchView &bv, std::vector<char> &mask) const = 0;
+    virtual void Process(BatchView &bv, std::span<ReprType<TypeId::Int8>::T> mask) const = 0;
     virtual ~BatchViewSelector() {}
 };
 
@@ -25,7 +25,7 @@ private:
 
 public:
     TransformSelector(std::string col_name, Transform trs);
-    void Process(BatchView &bv, std::vector<char> &mask) const override;
+    void Process(BatchView &bv, std::span<ReprType<TypeId::Int8>::T> mask) const override;
 };
 
 class Skipper {

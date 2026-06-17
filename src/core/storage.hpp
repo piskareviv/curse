@@ -45,8 +45,8 @@ public:
     const Column& GetColumn(std::string_view col_name);
 
     std::unique_ptr<Batch> ReadAll() &&;
-    std::unique_ptr<Batch> ReadSubset(std::span<char> mask) &&;
-    std::unique_ptr<Batch> ReadSubset(std::span<size_t> inds) &&;
+    std::unique_ptr<Batch> ReadSubset(std::span<const ReprType<TypeId::Int8>::T> mask) &&;
+    std::unique_ptr<Batch> ReadSubset(std::span<const size_t> inds) &&;
 
     size_t NRows();
     std::shared_ptr<const Schema> GetSchema();

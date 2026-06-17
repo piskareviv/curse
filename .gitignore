@@ -34,3 +34,6 @@ _tmp/*
 tmp/*
 
 run_all_queris.sh
+
+*.data
+*.data.old
