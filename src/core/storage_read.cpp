@@ -1,5 +1,6 @@
 #include "storage.hpp"
 //
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -105,16 +106,34 @@ std::vector<Column> BatchView::ExtractColumns() {
 std::unique_ptr<Batch> BatchView::ReadAll() && {
     return std::make_unique<Batch>(m_read_schema, ExtractColumns(), m_num_rows);
 }
-std::unique_ptr<Batch> BatchView::ReadSubset(std::vector<size_t> inds) && {
-    if (inds.empty()) {
-        std::vector<Column> columns;
-        columns.reserve(m_columns.size());
-        for (size_t i = 0; i < m_columns.size(); i++) {
-            columns.emplace_back(m_read_schema->Columns()[i].type);
-        }
-        return std::make_unique<Batch>(m_read_schema, std::move(columns), 0);
-    }
 
+std::unique_ptr<Batch> EmptyBatch(std::shared_ptr<const Schema> sch) {
+    const size_t n_cols = sch->Columns().size();
+    std::vector<Column> columns;
+    columns.reserve(n_cols);
+    for (size_t i = 0; i < n_cols; i++) {
+        columns.emplace_back(sch->Columns()[i].type);
+    }
+    return std::make_unique<Batch>(std::move(sch), std::move(columns), 0);
+}
+
+std::unique_ptr<Batch> BatchView::ReadSubset(std::span<char> mask) && {
+    ENSURE(mask.size() == NRows());
+
+    size_t cnt = mask.size() - std::count(mask.begin(), mask.end(), 0);
+    if (cnt == 0) {
+        return EmptyBatch(m_read_schema);
+    }
+    std::vector<Column> columns = ExtractColumns();
+    for (size_t i = 0; i < columns.size(); i++) {
+        columns[i] = columns[i].Filter(mask);
+    }
+    return std::make_unique<Batch>(m_read_schema, std::move(columns), cnt);
+}
+std::unique_ptr<Batch> BatchView::ReadSubset(std::span<size_t> inds) && {
+    if (inds.empty()) {
+        return EmptyBatch(m_read_schema);
+    }
     std::vector<Column> columns = ExtractColumns();
     for (size_t i = 0; i < columns.size(); i++) {
         columns[i] = columns[i].Select(inds);
@@ -122,6 +141,9 @@ std::unique_ptr<Batch> BatchView::ReadSubset(std::vector<size_t> inds) && {
     return std::make_unique<Batch>(m_read_schema, std::move(columns), inds.size());
 }
 
+size_t BatchView::NRows() {
+    return m_num_rows;
+}
 std::shared_ptr<const Schema> BatchView::GetSchema() {
     return m_read_schema;
 }

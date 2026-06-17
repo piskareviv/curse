@@ -375,6 +375,7 @@ public:
     size_t Size() const;
 
     void Append(Value);
+    void Append(const Column&);
     void Reserve(size_t);
     void Clear();
 

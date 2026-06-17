@@ -1,24 +1,31 @@
 
 add_library(curse_core 
+  types.hpp
   types.cpp
-  file_io.cpp
+
+  csv.hpp
   csv.cpp
+  
+  file_io.hpp
+  file_io.cpp
+
+
+  skippers.hpp
+  skippers.cpp
+
+  streams.hpp
+  streams.cpp
+
+  storage.hpp
   storage_read.cpp
   storage_write.cpp
-  aggregators.cpp
-
-  #############
   
-  types.hpp
-  csv.hpp
-  file_io.hpp
-  csv.hpp
-  convert.hpp
-  storage.hpp
-  constants.hpp
-  operators.hpp
+  aggregators.cpp
   aggregators.hpp
-
+  
+  operators.hpp
+  constants.hpp
+  convert.hpp
 
   ############# 
 

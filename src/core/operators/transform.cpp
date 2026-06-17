@@ -22,6 +22,10 @@ namespace curse {
 Transform::Transform(std::function<Column(const Column&)> transform, std::function<TypeId(TypeId)> result_type)
     : m_transform(std::move(transform)), m_result_type(std::move(result_type)) {}
 
+Column Transform::TransformColumn(const Column& col) const {
+    return m_transform(col);
+}
+
 Transform Transform::Constant(Value value) {
     return Transform(
         [=](const Column& col) {

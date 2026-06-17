@@ -22,9 +22,10 @@ private:
     friend class ColumnOperation;
 
 public:
+    Column TransformColumn(const Column& col) const;
+
     static Transform Constant(Value value);
     static Transform LogicalNot();
-
     static Transform Strlen();
 
     enum class ComparisonType {
@@ -37,13 +38,9 @@ public:
     };
 
     static Transform Compare(ComparisonType how, Value value);
-
     static Transform RegexpSearch(std::string pattern);
-
     static Transform RegexpReplace(std::string pattern, std::string format);
-
     static Transform ExtractMinute();
-
     static Transform TruncateToMinutes();
 };
 

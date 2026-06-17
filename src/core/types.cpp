@@ -30,6 +30,9 @@ void Column::Append(Value value) {
     std::visit([&]<TypeId id>(ColumnT<id>& col) { col.Append(std::move(std::get<ValueT<id>>(value.value).value)); },
                m_column);
 }
+void Column::Append(const Column& cl) {
+    std::visit([&]<TypeId id>(ColumnT<id>& col) { col.Append(std::get<ColumnT<id>>(cl.m_column)); }, m_column);
+}
 void Column::Reserve(size_t sz) {
     std::visit([&]<TypeId id>(ColumnT<id>& col) { col.Reserve(sz); }, m_column);
 }

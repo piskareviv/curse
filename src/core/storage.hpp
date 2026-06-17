@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -20,7 +21,6 @@ private:
     std::vector<size_t> m_inds;  // indices in file_schema of columns in read_schema
 
     size_t m_ptr;  // batch offset in the file
-    // size_t m_batch_size;  // in bytes
 
     std::vector<char> m_buf_header;
     size_t m_num_rows;
@@ -45,8 +45,10 @@ public:
     const Column& GetColumn(std::string_view col_name);
 
     std::unique_ptr<Batch> ReadAll() &&;
-    std::unique_ptr<Batch> ReadSubset(std::vector<size_t> inds) &&;
+    std::unique_ptr<Batch> ReadSubset(std::span<char> mask) &&;
+    std::unique_ptr<Batch> ReadSubset(std::span<size_t> inds) &&;
 
+    size_t NRows();
     std::shared_ptr<const Schema> GetSchema();
 };
 
@@ -91,6 +93,8 @@ public:
     std::unique_ptr<Batch> Next() override;
     std::shared_ptr<const Schema> GetSchema() override;
 };
+
+// #######################################################################################################
 
 void WriteAsCurse(const std::string& file, std::unique_ptr<BatchStream> stream);
 
