@@ -10,7 +10,7 @@ std::unique_ptr<BatchStream> Q34(const std::string& file) {
     auto trs = TransformOperator({ColumnOperation(Transform::Constant(Value(ValueT<TypeId::Int32>{1})), "URL", "one")});
     GroupByOperator group_by({"URL"}, {{.tp = AggType::Count, .inp_col = "URL", .out_col = "c"}});
     SortOperator sort({{.inp_col = "c", .reversed = true}}, 10);
-    SelectOperator select({"one", "URL"});
+    SelectOperator select({"one", "URL", "c"});
 
     return std::move(reader) >= group_by >= sort >= trs >= select;
 }
