@@ -23,26 +23,37 @@ add_library(curse_core
   ############# 
 
   operators/aggregation.hpp  
-  operators/enumerate.hpp
-  operators/drop.hpp
-  operators/filter.hpp
-  operators/groupby.hpp
-  operators/select.hpp
-  operators/skip.hpp
-  operators/sort.hpp
-  operators/transform.hpp
-
   operators/aggregation.cpp  
-  operators/enumerate.cpp
-  operators/drop.cpp
-  operators/filter.cpp
-  operators/groupby.cpp
-  operators/select.cpp
-  operators/skip.cpp
-  operators/sort.cpp
-  operators/transform.cpp
+
+  operators/chain.hpp
+  operators/chain.cpp
+
   operators/count.hpp
   operators/count.cpp
+
+  operators/drop.hpp
+  operators/drop.cpp
+
+  operators/enumerate.hpp
+  operators/enumerate.cpp
+
+  operators/filter.hpp
+  operators/filter.cpp
+  
+  operators/groupby.hpp
+  operators/groupby.cpp
+  
+  operators/select.hpp
+  operators/select.cpp
+  
+  operators/skip.hpp
+  operators/skip.cpp
+  
+  operators/sort.hpp
+  operators/sort.cpp
+  
+  operators/transform.hpp
+  operators/transform.cpp
 )
   
 target_include_directories(curse_core PUBLIC ${CMAKE_SOURCE_DIR})
