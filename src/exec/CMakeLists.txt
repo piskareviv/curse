@@ -29,3 +29,9 @@ add_executable(run_query
 )
 target_link_libraries(run_query PRIVATE curse_core hits_schema)
 
+
+add_executable(tmp_run_query
+    tmp_run_query.cpp
+)
+target_link_libraries(tmp_run_query PRIVATE curse_core hits_schema)
+
