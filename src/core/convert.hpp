@@ -303,26 +303,41 @@ public:
         ENSURE_MSG(bytes.back() == 0, "invalid input");
 
         ColumnT<id> col;
+        size_t sz = 0;
         std::string token;
 
         size_t i = 0;
-        for (; i + 1 < bytes.size(); i++) {
-            char ch = bytes[i];
-            if (ch == kDelim) {
-                col.Append(token);
-                token.clear();
-            } else {
-                if (ch != kEscape) {
-                    token.push_back(ch);
+        for (; i + 1 < bytes.size();) {
+            size_t dlt = std::min<size_t>(bytes.size() - i - 1, 1024);
+            size_t min_sz = sz + dlt + 10;
+
+            if (token.size() < min_sz) {
+                token.resize(std::max(2 * token.size() + 10, min_sz + 5));
+            }
+
+            size_t beg = i;
+            for (; i - beg < dlt; i++) {
+                char ch = bytes[i];
+                unsigned char ch_u = ch;
+
+                // if (ch != kDelim && ch != kEscape) {
+                static_assert(kDelim == 0 && kEscape == 1);
+                if (ch_u > static_cast<unsigned char>(1)) {
+                    token[sz++] = ch;
                 } else {
-                    token.push_back(bytes[i + 1]);
-                    i += 1;
+                    if (ch == kDelim) {
+                        col.Append(std::string_view(token).substr(0, sz));
+                        sz = 0;
+                    } else {
+                        token[sz++] = bytes[i + 1];
+                        i += 1;
+                    }
                 }
             }
         }
         ENSURE_MSG(i + 1 == bytes.size(), "invalid input");
 
-        col.Append(std::move(token));
+        col.Append(std::string_view(token).substr(0, sz));
 
         return col;
     }
